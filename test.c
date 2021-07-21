@@ -49,13 +49,15 @@ int main(){
         }  
     }else if(pid == 0){
         while(1){
+            msgToClient msg;
             memset(buffer, 0, sizeof(buffer)); 
             read(sockfd, buffer, sizeof(buffer));
+            parseJsonData_Client(&msg, buffer);
+            showMsg_msgToClient(msg);
             if(strncmp(buffer, "end", 3) == 0 || strlen(buffer) == 0){
                 kill(getppid(), SIGINT);
                 exit(0);
             }
-            printf("receive from server: %s\n", buffer);
         }    
     }  
     shutdown(sockfd, SHUT_RDWR);

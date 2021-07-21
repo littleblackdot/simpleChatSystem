@@ -31,9 +31,10 @@ typedef struct MSGTOSERVER{
 typedef struct MSGTOCLIENT{
     int result;
     int reasonCode;
+    int nameNum;
     ActionType_Server action;
     char (*names)[40];
-    char *message;
+    char message[1024];
 }msgToClient;
 
 

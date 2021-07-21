@@ -8,11 +8,14 @@ void formatMsgToJson_msgToServer(const msgToServer msg, char * jsonContainer){
         return;
     }
     char *buffer;
-    cJSON_AddStringToObject(json, "name", msg.userInfo.name);
-    cJSON_AddStringToObject(json, "pwd", msg.userInfo.pwd);
+    cJSON *userInfo= cJSON_CreateObject();
+    cJSON_AddNumberToObject(userInfo, "id", msg.userInfo.id);
+    cJSON_AddStringToObject(userInfo, "name", msg.userInfo.name);
+    cJSON_AddStringToObject(userInfo, "pwd", msg.userInfo.pwd);
+    cJSON_AddItemToObject(json, "userInfo", userInfo);
     cJSON_AddStringToObject(json, "message", msg.message);
     cJSON_AddNumberToObject(json, "action", msg.action);
-    cJSON_AddNumberToObject(json, "id", msg.userInfo.id);
+    
     buffer = cJSON_Print(json);
     if(strlen(buffer) == 0){
         printf("format error\n");
@@ -30,50 +33,139 @@ void parseJsonData_Server(msgToServer *pmsg, const char *jsonData){
     if(json == NULL){
         printf("json is NULL\n");
     }
-
-    cJSON *node1 = cJSON_GetObjectItemCaseSensitive(json, "action");
-    if(node1 != NULL){
-        if(cJSON_IsNumber){
-            pmsg->action = (ActionType_Client)node1->valueint;
+ 
+    cJSON *action = cJSON_GetObjectItemCaseSensitive(json, "action");
+    if(action != NULL){
+        if(cJSON_IsNumber(action)){
+            pmsg->action = (ActionType_Client)action->valueint;
         }
     }
-
-    cJSON *node2 = cJSON_GetObjectItemCaseSensitive(json, "id");
-    if(node2 != NULL){
-        if(cJSON_IsNumber){
-            pmsg->userInfo.id = node2->valueint;
+    cJSON *userInfo = cJSON_GetObjectItemCaseSensitive(json, "userInfo");
+    cJSON *id = cJSON_GetObjectItemCaseSensitive(userInfo, "id");
+    if(id != NULL){
+        if(cJSON_IsNumber(id)){
+            pmsg->userInfo.id = id->valueint;
         }
     }
-    cJSON *node3 = cJSON_GetObjectItemCaseSensitive(json, "name");
-    if(node3 != NULL){
-       if(cJSON_IsString(node3) && node3->valuestring != NULL){
+    cJSON *name = cJSON_GetObjectItemCaseSensitive(userInfo, "name");
+    if(name != NULL){
+       if(cJSON_IsString(name) && name->valuestring != NULL){
             memset(pmsg->userInfo.name, 0, sizeof(pmsg->userInfo.name));
-            strncpy(pmsg->userInfo.name, node3->valuestring, strlen(node3->valuestring));
+            strncpy(pmsg->userInfo.name, name->valuestring, strlen(name->valuestring));
         }
     }
 
-    cJSON *node4 = cJSON_GetObjectItemCaseSensitive(json, "pwd");
-    if(node4 != NULL){
-        if(cJSON_IsString(node4) && node4->valuestring != NULL){
+    cJSON *pwd = cJSON_GetObjectItemCaseSensitive(userInfo, "pwd");
+    if(pwd != NULL){
+        if(cJSON_IsString(pwd) && pwd->valuestring != NULL){
             memset(pmsg->userInfo.pwd, 0, sizeof(pmsg->userInfo.pwd));
-            strncpy(pmsg->userInfo.pwd, node4->valuestring, strlen(node4->valuestring));
+            strncpy(pmsg->userInfo.pwd, pwd->valuestring, strlen(pwd->valuestring));
         }
     }
 
-    cJSON *node5 = cJSON_GetObjectItemCaseSensitive(json, "message");
-    if(node5 != NULL){
-        if(cJSON_IsString(node4) && node5->valuestring != NULL){
+    cJSON *mess = cJSON_GetObjectItemCaseSensitive(json, "message");
+    if(mess != NULL){
+        if(cJSON_IsString(mess) && mess->valuestring != NULL){
             memset(pmsg->message, 0, sizeof(pmsg->message));
-            strncpy(pmsg->message, node5->valuestring, strlen(node5->valuestring));
+            strncpy(pmsg->message, mess->valuestring, strlen(mess->valuestring));
         }
     }
     cJSON_Delete(json);
 }
+
+
+void formatMsgToJson_msgToClient(const msgToClient msg, char *jsonContainer){
+    char *buffer;
+    cJSON *json = cJSON_CreateObject();
+    if(json == NULL){
+        printf("cjson create error\n");
+        return;
+    }
+    cJSON_AddNumberToObject(json, "result", msg.result);
+    cJSON_AddNumberToObject(json, "reasonCode", msg.result);
+    cJSON_AddNumberToObject(json, "nameNum", msg.nameNum);
+    cJSON_AddNumberToObject(json, "action", (int)msg.action);
+    cJSON *names = cJSON_AddArrayToObject(json, "names");
+    for(int i = 0; i <msg.nameNum; i++){
+        cJSON_AddStringToObject(names, "name",msg.names[i]);
+    } 
+    cJSON_AddStringToObject(json, "message", msg.message);
+    buffer = cJSON_Print(json);
+    strncpy(jsonContainer, buffer, strlen(buffer));
+    free(buffer);
+    cJSON_Delete(json);
+}
+
+
+void parseJsonData_Client(msgToClient *pmsg, const char *jsonData){
+    cJSON *json = cJSON_Parse(jsonData);
+    if(json == NULL){
+        printf("jsonData parse failed\n");
+        return ;
+    }
+    cJSON *result = cJSON_GetObjectItemCaseSensitive(json, "result");
+    if(result != NULL){
+        if(cJSON_IsNumber(result)){
+            pmsg->result = result->valueint;
+        }
+    }
+    cJSON *reasonCode = cJSON_GetObjectItemCaseSensitive(json, "reasonCode");
+    if(reasonCode != NULL){
+        if(cJSON_IsNumber(reasonCode)){
+            pmsg->reasonCode = reasonCode->valueint;
+        }
+    }
+    cJSON *nameNum = cJSON_GetObjectItemCaseSensitive(json, "nameNum");
+    if(nameNum != NULL){
+        if(cJSON_IsNumber(nameNum)){
+            pmsg->nameNum = nameNum->valueint;
+        }
+    }
+    cJSON *action = cJSON_GetObjectItemCaseSensitive(json, "action");
+    if(action != NULL){
+        if(cJSON_IsNumber(action)){
+            pmsg->action = (ActionType_Server)action->valueint;
+        }
+    }
+    cJSON *names = cJSON_GetObjectItemCaseSensitive(json, "names");
+    cJSON *name = NULL;
+    int i=0;
+    pmsg->names = (char (*)[40])malloc(sizeof(char[40]) * pmsg->nameNum);
+    memset(pmsg->names, 0, sizeof(char[40])*pmsg->nameNum);
+    cJSON_ArrayForEach(name, names){
+        if(cJSON_IsString(name) && name->valuestring != NULL){
+            memset(pmsg->names[i], 0, 40);
+            strncpy(pmsg->names[i], name->valuestring, strlen(name->valuestring));
+            i++;
+        }
+    }
+
+    cJSON *message = cJSON_GetObjectItemCaseSensitive(json, "message");
+    if(message != NULL){
+        if(cJSON_IsString(message) && message->valuestring != NULL){
+            memset(pmsg->message, 0, sizeof(pmsg->message));
+            strncpy(pmsg->message, message->valuestring, strlen(message->valuestring));
+        }
+    }
+    cJSON_Delete(json);
+}
+
 
 void showMsg_msgToServer(const msgToServer msg){
     printf("action: %d\n", msg.action);
     printf("id: %d\n", msg.userInfo.id);
     printf("name: %s\n", msg.userInfo.name);
     printf("pwd: %s\n", msg.userInfo.pwd);
+    printf("message: %s\n", msg.message);
+}
+
+void showMsg_msgToClient(const msgToClient msg){
+    printf("result: %d\n", msg.result);
+    printf("reasonCode %d\n", msg.reasonCode);
+    printf("nameNum %d\n", msg.nameNum);
+    printf("action %d\n", msg.action);
+    for(int i=0; i<msg.nameNum; i++){
+        printf("name[%d]: %s\n", i, msg.names[i]);
+    }
     printf("message: %s\n", msg.message);
 }

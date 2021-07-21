@@ -48,13 +48,30 @@ int main(){
             }
             if(ppid == 0){
                 while(1){
+                    msgToClient msg;
+                    msg.names = (char(*)[40])malloc(40*4);
+                    msg.result = 1;
+                    msg.nameNum = 4;
+                    msg.action = resultReturn;
+                    memset(msg.names[0], 0, 40);
+                    memset(msg.names[1], 0, 40);
+                    memset(msg.names[2], 0, 40);
+                    memset(msg.names[3], 0, 40);
+                    memset(msg.message, 0, sizeof(msg.message));
+                    strncpy(msg.names[0],"zhang", 5);
+                    strncpy(msg.names[1],"little", 6);
+                    strncpy(msg.names[2],"jianxai", 7);
+                    strncpy(msg.names[3],"zxxx", 4);
+                    strncpy(msg.message, "check out", 9);
                     memset(buffer, 0, sizeof(buffer));
-                    scanf("%s", buffer);
+                    formatMsgToJson_msgToClient(msg, buffer);
                     write(sockfd2, buffer, sizeof(buffer));
                     if(strncmp(buffer, "end", 3) == 0 || strlen(buffer) == 0){
+                        shutdown(sockfd2, SHUT_RDWR);
                         kill(getppid(), SIGINT);
                         exit(0);
                     }
+                    sleep(3);
                 }  
             }else if(ppid > 0){
                 signal(SIGINT, sigHander);
@@ -65,11 +82,10 @@ int main(){
                     parseJsonData_Server(&msg, buffer);
                     printf("get the message : \n");
                     showMsg_msgToServer(msg);
-                  /*   printf("%c %d | %c %d | %c %d | %c %d | %c %d |\n", msg.name[0], msg.name[0], msg.name[1], msg.name[1],
-            msg.name[2] ,msg.name[2], msg.name[3], msg.name[3], msg.name[4], msg.name[4]); */
                     if(strncmp(buffer, "end", 3) == 0 || strlen(buffer) == 0){
-                        kill(pid, SIGINT);
+                        kill(ppid, SIGINT);
                         wait(NULL);
+                        shutdown(sockfd2, SHUT_RDWR);
                         exit(0);
                     }
                 }   
