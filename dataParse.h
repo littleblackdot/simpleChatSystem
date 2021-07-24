@@ -1,9 +1,7 @@
 #ifndef __DATAPARSE_H__
 #define __DATAPARSE_H__
 
-#include<stdio.h>
-#include<string.h>
-#include<stdlib.h>
+#include "lib_use.h"
 
 #include "cJSON.h"
 #include "myType.h"

@@ -1,8 +1,7 @@
 #ifndef __MYTYPE_H__
 #define __MYTYPE_H__
 
-#include<arpa/inet.h>
-#include<sys/socket.h>
+#include "lib_use.h"
 
 typedef enum ActionType_Client{
     Register, Login, Chat, broadCast, sendFile, showOnline, superOperation
@@ -51,6 +50,9 @@ typedef struct UserInfo_server{
     UserType user;
 }UerInfo_server;
 
-
+struct msgbuf{
+    long mtype;
+    char mtext[BUFFER_SIZE];
+};
 
 #endif

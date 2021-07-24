@@ -1,98 +1,82 @@
-#include<stdio.h>
-#include<string.h>
-#include<stdlib.h>
-
-#include<sys/types.h>
-#include<unistd.h>
-#include<sys/socket.h>
-#include<arpa/inet.h>
-#include<sys/wait.h>
-
+#include "lib_use.h"
+#include "myNet.h"
 #include "dataParse.h"
-
+#define EPOLLCAPACITY_INIT 2000
+#define IPV4ADDRLEN 16
 void sigHander(int sign);
 
+int msgInit();
+
 int main(){
-    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    int sockfd2;
-    struct sockaddr_in addr;
-    struct sockaddr_in clientAddr={0};
-    int clAddrLen = sizeof(struct sockaddr);;
-    char buffer[1024];
-    addr.sin_family = AF_INET;//使用IPV4 TCP/IP协议的ip地址
-    addr.sin_port = htons(11234);//转换字节序
-    addr.sin_addr.s_addr = inet_addr("192.168.124.131");
-    int opt = 1;
-    setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-    if(bind(sockfd, (struct sockaddr *)&addr, sizeof(addr)) != 0){
-        perror("bind failed");
-    }
-    if(listen(sockfd, 5) != 0){
-        perror("listen failed");
+    int sockid = socketInit_TCP(SERVER_LISTENPORT, SERVER_IPADDRESS);
+    int pid; 
+    int epid = epoll_create(EPOLLCAPACITY_INIT); 
+    struct epoll_event ev;
+    struct epoll_event all[EPOLLCAPACITY_INIT];
+
+    ev.data.fd = sockid;
+    ev.events = EPOLLIN;
+    epoll_ctl(epid, EPOLL_CTL_ADD, sockid, &ev);
+    int msgid = msgInit();
+    pid = fork();
+    if(pid < 0){
+        perror("fork error");
         exit(1);
     }
-    
-    while(1){
-        sockfd2 = accept(sockfd, (struct sockaddr *)&clientAddr, &clAddrLen);
-        printf("accept client connection\n");
-        int pid = fork();
-        if(pid < 0){
-            perror("fork failed");
-            exit(1);
-        }
-        if(pid == 0){
-            int ppid = fork();
-            if(ppid < 0){
-                perror("fork failed");
-                exit(1);
+    if(pid > 0){//父进程负责监听连接请求
+        while(1){
+            int count = epoll_wait(epid, all, sizeof(all)/sizeof(all[0]), -1);
+            struct sockaddr_in clientAddr;
+            socklen_t clAddrLen = sizeof(struct sockaddr_in);
+            char ipaddr[IPV4ADDRLEN];
+            short port;
+            int sockid2;
+            int offset = 0;
+            for(int i = 0; i < count; i++){
+                if(all[i].data.fd == sockid){
+                    sockid2 = accept(sockid, (struct sockaddr*)&clientAddr, &clAddrLen);
+                    //连接信息发送子进程......
+                    struct msgbuf *pmsg = (struct msgbuf*) malloc(sizeof(struct msgbuf));
+                    memset(pmsg->mtext, 0, sizeof(pmsg->mtext));
+                    memset(ipaddr, 0, sizeof(ipaddr));
+                    pmsg->mtype = 1;
+                    offset = 0;
+                    strncpy(ipaddr, inet_ntoa(clientAddr.sin_addr), IPV4ADDRLEN);
+                    port = clientAddr.sin_port;
+
+                    strncpy(pmsg->mtext, (char*)&sockid2, sizeof(sockid2));
+                    offset += sizeof(sockid2);
+                    strncpy(pmsg->mtext+offset, ipaddr, IPV4ADDRLEN);
+                    offset += IPV4ADDRLEN;
+                    strncpy(pmsg->mtext+offset, (char*)&port, sizeof(port));
+                    msgsnd(msgid, pmsg, IPV4ADDRLEN+sizeof(port)+sizeof(sockid2), IPC_NOWAIT);
+                    write(sockid2, "hello1\n", 7);               
+                }
             }
-            if(ppid == 0){
-                while(1){
-                    msgToClient msg;
-                    msg.names = (char(*)[40])malloc(40*4);
-                    msg.result = 1;
-                    msg.nameNum = 4;
-                    msg.action = resultReturn;
-                    memset(msg.names[0], 0, 40);
-                    memset(msg.names[1], 0, 40);
-                    memset(msg.names[2], 0, 40);
-                    memset(msg.names[3], 0, 40);
-                    memset(msg.message, 0, sizeof(msg.message));
-                    strncpy(msg.names[0],"zhang", 5);
-                    strncpy(msg.names[1],"little", 6);
-                    strncpy(msg.names[2],"jianxai", 7);
-                    strncpy(msg.names[3],"zxxx", 4);
-                    strncpy(msg.message, "check out", 9);
-                    memset(buffer, 0, sizeof(buffer));
-                    formatMsgToJson_msgToClient(msg, buffer);
-                    write(sockfd2, buffer, sizeof(buffer));
-                    if(strncmp(buffer, "end", 3) == 0 || strlen(buffer) == 0){
-                        shutdown(sockfd2, SHUT_RDWR);
-                        kill(getppid(), SIGINT);
-                        exit(0);
-                    }
-                    sleep(3);
-                }  
-            }else if(ppid > 0){
-                signal(SIGINT, sigHander);
-                while(1){
-                    msgToServer msg;
-                    memset(buffer, 0, sizeof(buffer));
-                    read(sockfd2, buffer, sizeof(buffer));
-                    parseJsonData_Server(&msg, buffer);
-                    printf("get the message : \n");
-                    showMsg_msgToServer(msg);
-                    if(strncmp(buffer, "end", 3) == 0 || strlen(buffer) == 0){
-                        kill(ppid, SIGINT);
-                        wait(NULL);
-                        shutdown(sockfd2, SHUT_RDWR);
-                        exit(0);
-                    }
-                }   
-            }    
         }    
+    }else if(pid == 0){
+        while(1){
+            struct sockaddr_in clientAddr;
+            int clAddrLen = sizeof(struct sockaddr_in);
+            int sockid2;
+            char ipaddr[IPV4ADDRLEN];
+            short port;
+            int offset = 0;
+            struct msgbuf* pmsg = (struct msgbuf*)malloc(sizeof(struct msgbuf));
+
+            memset(pmsg->mtext, 0, sizeof(pmsg->mtext));
+            if(msgrcv(msgid, pmsg, sizeof(sockid2)+IPV4ADDRLEN+sizeof(port), 1, 0) < 0){
+                perror("msgrcv error");
+            }
+            offset = 0; 
+            strncpy((char*)&sockid2, pmsg->mtext, sizeof(sockid2));
+            offset += sizeof(sockid2);
+            strncpy((char*)&ipaddr, pmsg->mtext+offset, IPV4ADDRLEN);
+            offset += IPV4ADDRLEN;
+            strncpy((char*)&port, pmsg->mtext+offset, sizeof(port));
+            write(sockid2, "hello2\n", 7);
+        }
     }
-    shutdown(sockfd2, SHUT_RDWR);
     wait(NULL);
     return 0;
 }
@@ -102,4 +86,18 @@ void sigHander(int sig){
         wait(NULL);
         exit(1);
     }
+}
+
+int msgInit(){
+    key_t key = ftok("test.c", 'a');
+    if(key < 0 ){
+        printf("create key failed\n");
+        exit(1);
+    }
+    int shmid = msgget(key, IPC_CREAT|0655);
+    if(shmid < 0){
+        perror("msgget failed");
+        exit(1);
+    }
+    return shmid;
 }
