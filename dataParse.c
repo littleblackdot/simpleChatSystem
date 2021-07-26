@@ -15,6 +15,7 @@ void formatMsgToJson_msgToServer(const msgToServer msg, char * jsonContainer){
     cJSON_AddItemToObject(json, "userInfo", userInfo);
     cJSON_AddStringToObject(json, "message", msg.message);
     cJSON_AddNumberToObject(json, "action", msg.action);
+    cJSON_AddNumberToObject(json, "actionOption", msg.actionOption);
     
     buffer = cJSON_Print(json);
     if(strlen(buffer) == 0){
@@ -32,12 +33,19 @@ void parseJsonData_Server(msgToServer *pmsg, const char *jsonData){
     json = cJSON_Parse(jsonData);
     if(json == NULL){
         printf("json is NULL\n");
+        return;
     }
  
     cJSON *action = cJSON_GetObjectItemCaseSensitive(json, "action");
     if(action != NULL){
         if(cJSON_IsNumber(action)){
             pmsg->action = (ActionType_Client)action->valueint;
+        }
+    }
+    cJSON *actionOption = cJSON_GetObjectItemCaseSensitive(json, "actionOption");
+    if(actionOption != NULL){
+        if(cJSON_IsNumber(actionOption)){
+            pmsg->actionOption = actionOption->valueint;
         }
     }
     cJSON *userInfo = cJSON_GetObjectItemCaseSensitive(json, "userInfo");
@@ -100,7 +108,7 @@ void formatMsgToJson_msgToClient(const msgToClient msg, char *jsonContainer){
 void parseJsonData_Client(msgToClient *pmsg, const char *jsonData){
     cJSON *json = cJSON_Parse(jsonData);
     if(json == NULL){
-        printf("jsonData parse failed\n");
+        printf("json is null\n");
         return ;
     }
     cJSON *result = cJSON_GetObjectItemCaseSensitive(json, "result");

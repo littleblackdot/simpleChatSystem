@@ -2,6 +2,7 @@
 #define __MYTHREADPOOL_H__
 
 #include "lib_use.h"
+#include "myType.h"
 #include "queue.h"
 
 #define bool int

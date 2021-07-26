@@ -3,7 +3,8 @@
 
 
 #include "lib_use.h"
-#include"Task.h"
+#include "myType.h"
+
 #define elementType Task
 
 

@@ -44,15 +44,26 @@ typedef struct MSGTOCLIENT{
 
 
 typedef struct UserInfo_server{
-    struct sockaddr_in addr;
-    UserInfo_Client userInfo;
+    int sockid;
+    UserInfo_Client userInfo_c;
     StatusType status;
-    UserType user;
-}UerInfo_server;
+    UserType userType;
+}UserInfo_server;
 
 struct msgbuf{
     long mtype;
     char mtext[BUFFER_SIZE];
 };
+
+
+typedef void (*taskFuncType)(void *, void*, void *, void *);
+typedef struct Task{
+	taskFuncType taskFunc;
+	void *arg1;
+    void *arg2;
+    void *arg3;
+    void *arg4;
+}Task;
+
 
 #endif

@@ -1,9 +1,9 @@
 CC = gcc
-object = server.o dataParse.o myNet.o cJSON.o queue.o
-
-binary_file : $(object)
-	$(CC) $(object) -o server
-
+object1 = server.o dataParse.o myNet.o cJSON.o queue.o serverWork.o myThreadPool.o
+object2 = client.o dataParse.o cJSON.o clientWork.o
+binary_file : $(object1) $(object2)
+	$(CC) $(object1) -o server -lpthread -lsqlite3
+	$(CC) $(object2) -o client
 server.o : server.c
 	$(CC) -c server.c  
 
@@ -17,6 +17,12 @@ cJSON.o : cJSON.c
 	$(CC) -c cJSON.c
 queue.o : queue.c
 	$(CC) -c queue.c
+serverWork.o : serverWork.c
+	$(CC) -c serverWork.c
+myThreadPool.o : myThreadPool.c
+	$(CC) -c myThreadPool.c -lpthread
+clientWork.o : clientWork.c
+	$(CC) -c clientWork.c
 .PHONY:
 clean:
-	rm -rf $(object) binary_file
+	rm -rf $(object1) $(object2) binary_file

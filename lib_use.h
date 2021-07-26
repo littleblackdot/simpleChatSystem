@@ -11,6 +11,7 @@
 #include<arpa/inet.h>
 #include<pthread.h>
 #include<fcntl.h>
+#include <sqlite3.h>
 
 #include<sys/time.h>
 #include<sys/socket.h>

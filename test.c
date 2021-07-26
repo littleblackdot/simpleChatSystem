@@ -9,24 +9,20 @@
 #include<fcntl.h>
 #include<arpa/inet.h>
 #include<sys/wait.h>
+#include<sqlite3.h>
 
 #include "dataParse.h"
 
 int getTotalUserNum(int fd);
 
+void myItoA(const int, char *);
 
 int main(){
-    int fd = open("userInfo.txt", O_RDWR|O_CREAT, 0655);
-    char buffer1[30] = "total user: 112312\n";
-    char buffer2[30] = "total user: 2839021\n";
-    lseek(fd, 0, SEEK_SET);
-    write(fd, buffer1, strlen(buffer1));
-    lseek(fd, 0, SEEK_SET);
-    write(fd, buffer2, strlen(buffer2));
-    lseek(fd, 0, SEEK_END);
-    write(fd, buffer1, strlen(buffer1));
-    printf("%d \n", getTotalUserNum(fd));
-    close(fd);
+    char sql[1024];
+    int a = 312145;
+    memset(sql, 0, sizeof(sql));
+    myItoA(a, sql);
+    printf("%s\n", sql);
     return 0;
 }
 
@@ -44,3 +40,19 @@ int getTotalUserNum(int fd){
     return ret;
 }
 
+void myItoA(const int a, char *string){
+    int temp = a;
+    int i = 0;
+    int j=0;
+    while(temp != 0){
+        string[i] = temp%10 + '0';
+        temp /=10;
+        i++;
+    }
+    i--;
+    for(; j < i; j++,i--){
+        string[j] = string[i] + string[j];
+        string[i] = string[j] - string[i];
+        string[j] = string[j] - string[i];
+    }
+}

@@ -3,16 +3,18 @@
 void* threadFunc(void* arg){
     pThreadPool pthpool = (pThreadPool)arg; 
     while(1){ 
+        //printf("%d: 1\n", pthread_self());
         pthread_mutex_lock(&pthpool->mutex_taskQueue);
         while(isEmpty(pthpool->queue)){
             if(pthpool->isExit){//销毁线程池开始且任务队列为空就退出
                 pthread_mutex_unlock(&pthpool->mutex_taskQueue);
                 break;
             }
-
+            //printf("%d: 2\n", pthread_self());
             pthread_cond_wait(&pthpool->cond_queue_notEmpty, &pthpool->mutex_taskQueue);
 
             pthread_mutex_lock(&pthpool->mutex_threadPool);
+            //printf("%d: 3\n", pthread_self());
 
             if(pthpool->threadNum_canceling > 0){
                 (pthpool->threadNum_canceling)--;
@@ -36,6 +38,8 @@ void* threadFunc(void* arg){
 
         }
         pthread_mutex_lock(&pthpool->mutex_threadPool);
+        //printf("%d: 4\n", pthread_self());
+
         if(pthpool->isExit && isEmpty(pthpool->queue)){//线程池销毁开始且任务队列为空就退出线程
             if(pthread_detach(pthread_self()) != 0){
                 printf("detach thread: %ld fail\n", pthread_self());
@@ -51,12 +55,15 @@ void* threadFunc(void* arg){
         pthread_mutex_unlock(&pthpool->mutex_taskQueue);
 
         pthread_mutex_lock(&pthpool->mutex_threadPool);
+        //printf("%d: 5\n", pthread_self());
+
         (pthpool->threadNum_busy)++;
         pthread_mutex_unlock(&pthpool->mutex_threadPool); 
 
-        task.taskFunc(task.arg);
+        task.taskFunc(task.arg1, task.arg2, task.arg3, task.arg4);
 
         pthread_mutex_lock(&pthpool->mutex_threadPool);
+        //printf("%d: 6\n", pthread_self());
         (pthpool->threadNum_busy)--;
         pthread_mutex_unlock(&pthpool->mutex_threadPool);               
     }
