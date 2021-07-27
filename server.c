@@ -45,7 +45,6 @@ int main(){
             }else{
                 int sockid2 = all[i].data.fd;
                 int count1;
-                int option;
                 memset(buffer, 0, sizeof(buffer));
                 count1 = recv(sockid2, buffer, sizeof(buffer), 0);
                 if(count1 <= 0){
@@ -67,21 +66,28 @@ int main(){
                     epoll_ctl(epid, EPOLL_CTL_DEL, sockid2, &t);
                     continue;
                 }
+                int *option = (int*)malloc(sizeof(int));
+                char *message = (char*)malloc(sizeof(char) * BUFFER_SIZE);
+                UserInfo_server *userInfo_s = (UserInfo_server *)malloc(sizeof(UserInfo_server));
                 msgToServer msg;
+                printf("buffer:%s", buffer);
                 parseJsonData_Server(&msg, buffer);
-                UserInfo_server userInfo_s;
-                userInfo_s.sockid = sockid2;
-                userInfo_s.userInfo_c.id = msg.userInfo.id;
-                memset(userInfo_s.userInfo_c.name, 0, sizeof(userInfo_s.userInfo_c.name));
-                memset(userInfo_s.userInfo_c.pwd, 0, sizeof(userInfo_s.userInfo_c.pwd));
-                strncpy(userInfo_s.userInfo_c.name, msg.userInfo.name, strlen(msg.userInfo.name));
-                strncpy(userInfo_s.userInfo_c.pwd, msg.userInfo.pwd, strlen(msg.userInfo.pwd));
-                option = msg.actionOption;
+               
+                userInfo_s->sockid = sockid2;
+                userInfo_s->userInfo_c.id = msg.userInfo.id;
+                memset(userInfo_s->userInfo_c.name, 0, sizeof(userInfo_s->userInfo_c.name));
+                memset(userInfo_s->userInfo_c.pwd, 0, sizeof(userInfo_s->userInfo_c.pwd));
+                memset(message, 0, BUFFER_SIZE);
+                strncpy(userInfo_s->userInfo_c.name, msg.userInfo.name, strlen(msg.userInfo.name));
+                strncpy(userInfo_s->userInfo_c.pwd, msg.userInfo.pwd, strlen(msg.userInfo.pwd));
+                strncpy(message, msg.message, strlen(msg.message));
+                *option = msg.actionOption;
                 Task task; 
                 task.taskFunc = taskFuncs[msg.action];
                 task.arg1 = (void *)list;
-                task.arg2 = (void *)&userInfo_s;
-                task.arg3 = (void *)&option;
+                task.arg2 = (void *)userInfo_s;
+                task.arg3 = (void *)option;
+                task.arg4 = (void *)message;
                 addTask(pthpool, task);        
             }
         }  

@@ -59,7 +59,8 @@ void* threadFunc(void* arg){
 
         (pthpool->threadNum_busy)++;
         pthread_mutex_unlock(&pthpool->mutex_threadPool); 
-        task.taskFunc(task.arg1, task.arg2, task.arg3);
+        
+        task.taskFunc(task.arg1, task.arg2, task.arg3, task.arg4);
 
         pthread_mutex_lock(&pthpool->mutex_threadPool);
         //printf("%d: 6\n", pthread_self());

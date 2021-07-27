@@ -8,7 +8,7 @@ typedef enum ActionType_Client{
 }ActionType_Client;
 
 typedef enum ActionType_Server{
-    resultReturn, sendFileRequest, messagePost
+    chatResultReturn, showUsers, sendFileRequest, messagePost, superOperationResultReturn
 }ActionType_Server;
 
 typedef enum StatusType{
@@ -56,12 +56,13 @@ struct msgbuf{
 };
 
 
-typedef void (*taskFuncType)(void *, void*, void *);
+typedef void (*taskFuncType)(void *, void*, void *, void *);
 typedef struct Task{
 	taskFuncType taskFunc;
 	void *arg1;
     void *arg2;
     void *arg3;
+    void *arg4;
 }Task;
 
 typedef void (*clientWorkFuncType)(int );

@@ -134,8 +134,7 @@ int isEqual_itemID(elementType_LIST itemA, elementType_LIST itemB){
 	return itemA.userInfo_c.id == itemB.userInfo_c.id;
 }
 int isEqual_itemName(elementType_LIST itemA, elementType_LIST itemB){
-	return strncmp(itemA.userInfo_c.name, itemB.userInfo_c.name,
-	 strlen(itemA.userInfo_c.name)) == 0 ? 1 : 0;
+	return strncmp(itemA.userInfo_c.name, itemB.userInfo_c.name,strlen(itemA.userInfo_c.name)) == 0 ? 1 : 0;
 }
 
 int isEqual_itemSockID(elementType_LIST itemA, elementType_LIST itemB){

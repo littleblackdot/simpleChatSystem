@@ -1,8 +1,13 @@
 #include "serverWork.h"
 
-
-void work_register(void * userList, void * userInfo, void * pOption){
+extern pthread_mutex_t dataBase_mutex;
+extern pthread_mutex_t userList_mutex; 
+void work_register(void * userList, void * userInfo, void * pOption, void * message){
     UserInfo_server *userInfo_s  = (UserInfo_server *)userInfo;
+    List* list = (List*)userList;
+    int option = *(int*)pOption;
+    char *mess = (char*)message;
+
     msgToClient msg;
     char sql[BUFFER_SIZE];
     char buffer[BUFFER_SIZE];
@@ -33,7 +38,6 @@ void work_register(void * userList, void * userInfo, void * pOption){
     userInfo_s->userInfo_c.id = atoi(table[1]);
     pthread_mutex_unlock(&dataBase_mutex);
 
-    msg.action = resultReturn;
     msg.result = 1;
     memset(msg.message, 0, sizeof(msg.message));
     myItoA(userInfo_s->userInfo_c.id, msg.message);
@@ -42,13 +46,17 @@ void work_register(void * userList, void * userInfo, void * pOption){
     send(userInfo_s->sockid, buffer, strlen(buffer), 0);
     sqlite3_free_table(table);
     sqlite3_close(db);
+    free(userInfo);
+    free(pOption);
+    free(message);
 }
 
 
-void work_login(void * userList, void * userInfo,  void * pOption){
+void work_login(void * userList, void * userInfo,  void * pOption, void * message){
     UserInfo_server *userInfo_s  = (UserInfo_server *)userInfo;
-    pthread_mutex_t *Database_mutex = (pthread_mutex_t *)pDataBase_mutex;
-    List *list = (List *)userList;
+    List* list = (List*)userList;
+    int option = *(int*)pOption;
+    char *mess = (char*)message;
     msgToClient msg;
     char sql[BUFFER_SIZE];
     char buffer[BUFFER_SIZE];
@@ -57,6 +65,7 @@ void work_login(void * userList, void * userInfo,  void * pOption){
     int columnCount;
     int rowCount;
     sqlite3 *db;
+
     int ret = sqlite3_open("local.db", &db);
     perror_db(db, ret, "open DataBase error");
     sprintf(sql, "select * from User where id = %d ;", userInfo_s->userInfo_c.id);
@@ -67,73 +76,143 @@ void work_login(void * userList, void * userInfo,  void * pOption){
         msg.reasonCode = rowCount ;//0，表示用户id不存在， 1表示密码错误
         memset(buffer, 0, sizeof(buffer));
         formatMsgToJson_msgToClient(msg, buffer);
-        //printf("rowCount %d\n", rowCount);
-        //printf("%s\n", buffer);
         send(userInfo_s->sockid, buffer, strlen(buffer), 0);
         sqlite3_free_table(table);
         sqlite3_close(db);
+        free(userInfo);
+        free(pOption);
+        free(message);
         return ;
     }
     memset(userInfo_s->userInfo_c.name, 0, sizeof(userInfo_s->userInfo_c.name));
-    strncpy(userInfo_s->userInfo_c.name, table[columnCount*1 + 1], strlen(table[columnCount*1 + 2]));
-    userInfo_s->status = (StatusType)atoi(table[columnCount*1 + 3]);
-    userInfo_s->userType = normal;
+    strncpy(userInfo_s->userInfo_c.name, table[columnCount*1 + 1], strlen(table[columnCount*1 + 1]));
+    userInfo_s->userType = (UserType)atoi(table[columnCount*1 + 3]);
+    userInfo_s->status = normal;
+    
+    pthread_mutex_lock(&userList_mutex);
     insertNode(list, *userInfo_s);
+    pthread_mutex_unlock(&userList_mutex);
+    //displayList(list);
     msg.result = 1;
     memset(buffer, 0, sizeof(buffer));
     formatMsgToJson_msgToClient(msg, buffer);
     send(userInfo_s->sockid, buffer, strlen(buffer), 0);
     sqlite3_free_table(table);
     sqlite3_close(db);
+    free(userInfo);
+    free(pOption);
+    free(message);
 }
 
 
-void work_chat(void * userList, void * userInfo, void * pOption){
-    pthread_mutex_t *Database_mutex = (pthread_mutex_t *)pDataBase_mutex;
-    List *list = (List *)userList;
-    pthread_mutex_t *userList_mutex = (pthread_mutex_t *)pUserList_mutex;
+void work_chat(void * userList, void * userInfo, void * pOption, void * message){
+    UserInfo_server *userInfo_s  = (UserInfo_server *)userInfo;
+    List* list = (List*)userList;
+    int option = *(int*)pOption;
+    char *mess = (char*)message;
+    int count = 0;
     msgToClient msg;
     char buffer[BUFFER_SIZE];
-    msg.result = 1;
-    int nameNum = getLength(list);
+    memset(buffer, 0, sizeof(buffer));
+    if(userInfo_s->status == postBanend){
+        msg.result = 0;
+        msg.reasonCode = 1; //聊天错误码：0， 用户不在线， 1，被禁言
+        msg.action = chatResultReturn;
+        formatMsgToJson_msgToClient(msg, buffer);
+        send(userInfo_s->sockid, buffer, strlen(buffer), 0);
+        return ;
+    }
+    elementType_LIST  temp;
+    memset(temp.userInfo_c.name, 0, sizeof(temp.userInfo_c.name));
+    strncpy(temp.userInfo_c.name, userInfo_s->userInfo_c.name, strlen(userInfo_s->userInfo_c.name));
 
-
-
-
+    pthread_mutex_lock(&userList_mutex);
+    Node_List *clientNode = findNode(list, *userInfo_s, isEqual_itemID);
+    Node_List *cur = list->head;
+    for(; cur!=NULL; cur = cur->next){
+        printf("curName:%s\n", cur->item.userInfo_c.name);
+        if((isEqual_itemName(cur->item, temp) || option) //私聊或群聊
+            && (!isEqual_itemSockID(cur->item, clientNode->item))){//自己不对自己发信息
+            msg.result = 1;
+            msg.nameNum = 1;
+            msg.names = (char (*)[40])malloc(sizeof(char[40]) *msg.nameNum);
+            memset(msg.names[0], 0, sizeof(char[40]));
+            memset(msg.message, 0, sizeof(msg.message));
+            strncpy(msg.names[0], clientNode->item.userInfo_c.name, strlen(clientNode->item.userInfo_c.name));
+            strncpy(msg.message, mess, strlen(mess));
+            msg.action = messagePost;
+            memset(buffer, 0, sizeof(buffer));
+            formatMsgToJson_msgToClient(msg, buffer);
+            send(cur->item.sockid, buffer, strlen(buffer), 0);
+            free(msg.names);
+            count++;
+            printf("1\n");
+        }
+    }
+    pthread_mutex_unlock(&userList_mutex);
+    
+    if(count == 0){
+        msg.result = 0;
+        msg.reasonCode = 0; //聊天错误码：0， 用户不在线， 1，被禁言
+        msg.action = chatResultReturn;
+        formatMsgToJson_msgToClient(msg, buffer); 
+        send(userInfo_s->sockid, buffer, strlen(buffer), 0);
+    }
+       
+    free(userInfo);
+    free(pOption);
+    free(message);
 }
-void work_fileSend(void * userList, void * userInfo, void * pOption){
-
-
-
-}
-void work_showOnline(void * userList, void * userInfo, void * pOption){
+void work_fileSend(void * userList, void * userInfo, void * pOption, void * message){
     UserInfo_server *userInfo_s  = (UserInfo_server *)userInfo;
-    List *list = (List *)userList;
+    List* list = (List*)userList;
+    int option = *(int*)pOption;
+    char *mess = (char*)message;
+
+    free(userInfo);
+    free(pOption);
+    free(message);
+}
+void work_showOnline(void * userList, void * userInfo, void * pOption, void * message){
+    UserInfo_server *userInfo_s  = (UserInfo_server *)userInfo;
+    List* list = (List*)userList;
+    int option = *(int*)pOption;
+    char *mess = (char*)message;
     msgToClient msg;   
     char buffer[BUFFER_SIZE];
     msg.result = 1;
     pthread_mutex_lock(&userList_mutex);
     msg.nameNum = getLength(list);
-    printf("lenth:%d\n", msg.nameNum);
+    //printf("lenth:%d\n", msg.nameNum);
     msg.names = (char(*)[40])malloc(sizeof(char[40]) * msg.nameNum);
     Node_List *node = list->head;
     for(int i = 0; node != NULL; node = node->next, i++){
         memset(msg.names[i], 0, sizeof(char[40]));
-        printf("%s", node->item.userInfo_c.name);
+       // printf("names[%d]:%s\n", i, node->item.userInfo_c.name);
         strncpy(msg.names[i], node->item.userInfo_c.name, strlen(node->item.userInfo_c.name));
     }
     pthread_mutex_unlock(&userList_mutex);
 
+    msg.action = showUsers;
     memset(buffer, 0, sizeof(buffer));
     formatMsgToJson_msgToClient(msg, buffer);
     send(userInfo_s->sockid, buffer, strlen(buffer), 0);//用户过多buffer可能不够用......
     free(msg.names);
+    free(userInfo);
+    free(pOption);
+    free(message);
 }
 
 
-void work_superOperation(void * userList, void * userInfo, void * pOption){
+void work_superOperation(void * userList, void * userInfo, void * pOption, void * message){
+    UserInfo_server *userInfo_s  = (UserInfo_server *)userInfo;
+    List* list = (List*)userList;
+    int option = *(int*)pOption;
+    char *mess = (char*)message;
 
-
+    free(userInfo);
+    free(pOption);
+    free(message);
 }
 
 

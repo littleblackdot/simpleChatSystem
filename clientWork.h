@@ -13,5 +13,6 @@ void work_sendFile(int sockid);
 void work_showOnline(int sockid);
 void work_superOperate(int sockid);
 
+void messReceive(int sockid);
 
 #endif
