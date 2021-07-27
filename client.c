@@ -4,11 +4,15 @@
 void showMeun();
 void sigHander(int sig);
 
+int isLogin = 0;
+static int sockid ;
+
 int main(){
-    int sockid = socket(AF_INET, SOCK_STREAM, 0);
+    sockid = socket(AF_INET, SOCK_STREAM, 0);
     struct sockaddr_in addr;
     char buffer[1024];
     int option;
+
     addr.sin_family = AF_INET;//使用IPV4 TCP/IP协议的ip地址
     addr.sin_port = htons(11234);//转换字节序
     addr.sin_addr.s_addr = inet_addr("192.168.124.131");
@@ -27,7 +31,6 @@ int main(){
     } 
     shutdown(sockid, SHUT_RDWR);
     wait(NULL);
-    
     return 0;
 }
 
@@ -35,6 +38,11 @@ void sigHander(int sig){
     if(sig == SIGINT){
         wait(NULL);
         exit(0);
+    }
+    if(sig==SIGALRM){
+        isLogin = 0;
+        shutdown(sockid, SHUT_RDWR);
+        wait(NULL);
     }
 }
 

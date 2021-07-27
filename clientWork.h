@@ -4,7 +4,7 @@
 #include "lib_use.h"
 #include "myType.h"
 #include "dataParse.h"
-
+extern int isLogin;
 
 void work_register(int sockid);
 void work_login(int sockid);

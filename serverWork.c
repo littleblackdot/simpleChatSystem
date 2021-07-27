@@ -17,6 +17,7 @@ void work_register(void * userList, void * userInfo, void * pOption, void * mess
     int rowCount;
     sqlite3 *db;
 
+    msg.nameNum = 0;
     if(strlen(userInfo_s->userInfo_c.name) == 0 ||
         strlen(userInfo_s->userInfo_c.pwd) == 0){
          printf("userName or password parse error\n");
@@ -66,6 +67,7 @@ void work_login(void * userList, void * userInfo,  void * pOption, void * messag
     int rowCount;
     sqlite3 *db;
 
+    msg.nameNum = 0;
     int ret = sqlite3_open("local.db", &db);
     perror_db(db, ret, "open DataBase error");
     sprintf(sql, "select * from User where id = %d ;", userInfo_s->userInfo_c.id);
@@ -93,6 +95,7 @@ void work_login(void * userList, void * userInfo,  void * pOption, void * messag
     insertNode(list, *userInfo_s);
     pthread_mutex_unlock(&userList_mutex);
     //displayList(list);
+    //printf("isroot %d\n", userInfo_s->userType == root);
     msg.result = 1;
     memset(buffer, 0, sizeof(buffer));
     formatMsgToJson_msgToClient(msg, buffer);
@@ -114,9 +117,15 @@ void work_chat(void * userList, void * userInfo, void * pOption, void * message)
     msgToClient msg;
     char buffer[BUFFER_SIZE];
     memset(buffer, 0, sizeof(buffer));
-    if(userInfo_s->status == postBanend){
+
+    pthread_mutex_lock(&userList_mutex);
+    Node_List *node = findNode(list, *userInfo_s, isEqual_itemSockID);
+    pthread_mutex_unlock(&userList_mutex);
+
+    if(node->item.status == postBanend){
         msg.result = 0;
         msg.reasonCode = 1; //聊天错误码：0， 用户不在线， 1，被禁言
+        msg.nameNum = 0;
         msg.action = chatResultReturn;
         formatMsgToJson_msgToClient(msg, buffer);
         send(userInfo_s->sockid, buffer, strlen(buffer), 0);
@@ -127,10 +136,10 @@ void work_chat(void * userList, void * userInfo, void * pOption, void * message)
     strncpy(temp.userInfo_c.name, userInfo_s->userInfo_c.name, strlen(userInfo_s->userInfo_c.name));
 
     pthread_mutex_lock(&userList_mutex);
-    Node_List *clientNode = findNode(list, *userInfo_s, isEqual_itemID);
+    Node_List *clientNode = findNode(list, *userInfo_s, isEqual_itemSockID);
     Node_List *cur = list->head;
     for(; cur!=NULL; cur = cur->next){
-        printf("curName:%s\n", cur->item.userInfo_c.name);
+        //printf("curName:%s\n", cur->item.userInfo_c.name);
         if((isEqual_itemName(cur->item, temp) || option) //私聊或群聊
             && (!isEqual_itemSockID(cur->item, clientNode->item))){//自己不对自己发信息
             msg.result = 1;
@@ -146,15 +155,15 @@ void work_chat(void * userList, void * userInfo, void * pOption, void * message)
             send(cur->item.sockid, buffer, strlen(buffer), 0);
             free(msg.names);
             count++;
-            printf("1\n");
         }
     }
     pthread_mutex_unlock(&userList_mutex);
-    
+
     if(count == 0){
         msg.result = 0;
-        msg.reasonCode = 0; //聊天错误码：0， 用户不在线， 1，被禁言
+        msg.reasonCode = findNode(list, *userInfo_s, isEqual_itemName) == NULL ? 0 : 2; //聊天错误码：0， 用户不在线， 1，被禁言, 2对自己发消息
         msg.action = chatResultReturn;
+        msg.nameNum = 0;
         formatMsgToJson_msgToClient(msg, buffer); 
         send(userInfo_s->sockid, buffer, strlen(buffer), 0);
     }
@@ -163,6 +172,8 @@ void work_chat(void * userList, void * userInfo, void * pOption, void * message)
     free(pOption);
     free(message);
 }
+
+
 void work_fileSend(void * userList, void * userInfo, void * pOption, void * message){
     UserInfo_server *userInfo_s  = (UserInfo_server *)userInfo;
     List* list = (List*)userList;
@@ -173,6 +184,8 @@ void work_fileSend(void * userList, void * userInfo, void * pOption, void * mess
     free(pOption);
     free(message);
 }
+
+
 void work_showOnline(void * userList, void * userInfo, void * pOption, void * message){
     UserInfo_server *userInfo_s  = (UserInfo_server *)userInfo;
     List* list = (List*)userList;
@@ -209,7 +222,52 @@ void work_superOperation(void * userList, void * userInfo, void * pOption, void 
     List* list = (List*)userList;
     int option = *(int*)pOption;
     char *mess = (char*)message;
+    msgToClient msg;   
+    char buffer[BUFFER_SIZE];
 
+    msg.action = superOperationResultReturn;
+    msg.nameNum = 0;
+    memset(buffer, 0, sizeof(buffer));
+
+    pthread_mutex_lock(&userList_mutex);
+    Node_List *tNode = findNode(list, *userInfo_s, isEqual_itemName);
+    Node_List *temp = findNode(list, *userInfo_s, isEqual_itemSockID);
+    pthread_mutex_unlock(&userList_mutex);
+
+    if(temp->item.userType != root){
+        msg.result = 0;
+        msg.reasonCode = 0;
+        formatMsgToJson_msgToClient(msg, buffer);
+        send(userInfo_s->sockid, buffer, strlen(buffer), 0); 
+        return;
+    }
+
+    if(tNode == NULL){
+        msg.result = 0;
+        msg.reasonCode = 1;
+        formatMsgToJson_msgToClient(msg, buffer);
+        send(userInfo_s->sockid, buffer, strlen(buffer), 0);
+        return;
+    }
+
+    msg.result = 1;
+    msg.reasonCode = option + 3;
+    memset(msg.message, 0, sizeof(msg.message));
+    strncpy(msg.message, tNode->item.userInfo_c.name, strlen(tNode->item.userInfo_c.name));
+    formatMsgToJson_msgToClient(msg, buffer);
+    send(userInfo_s->sockid, buffer, strlen(buffer), 0);//发给操作者
+    int sockid = tNode->item.sockid;//优化点，先链表数据保存下来在访问，不要对链表多次访问，不然要加锁解锁很多次，这里加锁解锁也不完善
+    switch(option){
+        case 0: tNode->item.status = postBanend;    break; //禁言
+        case 1: tNode->item.status = normal;   break;//解禁
+        case 2: delNode(list, tNode->item, isEqual_itemID);  break;//踢人
+        default : break;
+    }
+    memset(buffer, 0, sizeof(buffer));
+    msg.reasonCode -= 3;
+    formatMsgToJson_msgToClient(msg, buffer);
+    send(sockid, buffer, strlen(buffer), 0);//发给被操作者
+    
     free(userInfo);
     free(pOption);
     free(message);

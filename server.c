@@ -70,7 +70,7 @@ int main(){
                 char *message = (char*)malloc(sizeof(char) * BUFFER_SIZE);
                 UserInfo_server *userInfo_s = (UserInfo_server *)malloc(sizeof(UserInfo_server));
                 msgToServer msg;
-                printf("buffer:%s", buffer);
+                printf("buffer:%s\n", buffer);
                 parseJsonData_Server(&msg, buffer);
                
                 userInfo_s->sockid = sockid2;

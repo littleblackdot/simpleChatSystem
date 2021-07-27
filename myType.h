@@ -35,7 +35,7 @@ typedef struct MSGTOSERVER{
 
 typedef struct MSGTOCLIENT{
     int result;//客户端业务请求处理结果，1 成功   0失敗
-    int reasonCode;//错误码，请求失败时有意义
+    int reasonCode;//原因码，不同情景意义不同
     int nameNum;
     ActionType_Server action;
     char (*names)[40];
