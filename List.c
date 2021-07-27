@@ -13,7 +13,7 @@ List* createList(){
 	return list;
 }
 
-int isEmpty(List* list){
+int isEmpty_list(List* list){
 	if(list == NULL){
 		printf("list is NULL\n");
 		return -1;
@@ -27,10 +27,10 @@ void insertNode(List* list, elementType_LIST item){//头插
 		printf("list is NULL\n");
 		return ;
 	}
-	Node* node = (Node*)malloc(sizeof(Node));
-	node->item = item;
+	Node_List* node = (Node_List*)malloc(sizeof(Node_List));
+	itemAssign(&node->item, item);
 	node->next = NULL;
-	if(isEmpty(list)){
+	if(isEmpty_list(list)){
 		list->head = node;
 		list->tail = node;
 		++(list->length);
@@ -41,32 +41,32 @@ void insertNode(List* list, elementType_LIST item){//头插
 	++(list->length);
 }
 
-Node* findNode(List* list, elementType_LIST item){
+Node_List* findNode(List* list, elementType_LIST item, callBackFunc isEqual_item){
 	if(list == NULL){
 		printf("Head is NULL\n");
 		return NULL;
 	}
-	if(isEmpty(list)){
+	if(isEmpty_list(list)){
 		printf("there is no items in list\n");
 		return NULL;
 	}
-	Node* p;
+	Node_List* p;
 	for(p=list->head; p!=NULL; p=p->next){
-		if(p->item == item){
+		if(isEqual_item(p->item , item)){
 			break;
 		}
 	}
 	return p;
 }
 
-void delNode(List* list, elementType_LIST item){
+void delNode(List* list, elementType_LIST item, callBackFunc isEqual_item){
 	if(list == NULL){
 		printf("Head is NULL\n");
 		return ;
 	}
-	Node *p, *pre;
+	Node_List *p, *pre;
 	for(p = list->head; p!= NULL; pre = p,p = p->next){
-		if(p->item == item){
+		if(isEqual_item(p->item , item)){
 			break;
 		}
 	}
@@ -89,13 +89,14 @@ void delNode(List* list, elementType_LIST item){
 	pre->next = p->next;
 	free(p);
 }
+
 void destory(List* list){		
 	if(list == NULL){
 		printf("list is NULL");
 		return ;
 	}
-	for(Node* p=list->head; p!=NULL;){
-		Node* temp = p;
+	for(Node_List* p=list->head; p!=NULL;){
+		Node_List* temp = p;
 		p = p->next;
 		free(temp);
 	}
@@ -106,83 +107,46 @@ void displayList(List* list){
 		printf("list is NULL");
 		return;
 	}
-	for(Node* p=list->head; p!=NULL; p=p->next){
-		 printf("%d ", p->item);//待改进，要根据elementType来做输出处理......
+	for(Node_List* p=list->head; p!=NULL; p=p->next){
+		 showItem(p->item);
+		 //printf("%d ", p->item);//待改进，要根据elementType来做输出处理......
 	}
 }
 
-void reverse(List *list){
-	if(list == NULL){
-		printf("list is null");
-	}
-	if(isEmpty(list)){
-		return;
-	}
-	Node *curNode = list->head;
-	Node *tempNode = curNode;
-	curNode = curNode->next;
-	tempNode->next = NULL;
-	for(;curNode!=NULL;){
-		tempNode = curNode;
-		curNode = curNode->next;
-		tempNode->next = list->head;
-		list->head = tempNode;
-	}
-}
 
-Node* findMidNode(List *list){
-	if(list == NULL){
-		printf("list is null");
-		return NULL;
-	}
-	if(isEmpty(list)){
-		return NULL;
-	}
-	Node *curNode1, *curNode2;
-	curNode1 = list->head;
-	curNode2 = list->head->next;
-	while(curNode2!=NULL){
-		curNode1 = curNode1->next;
-		curNode2 = curNode2->next;
-		if(curNode2 == NULL){
-			break;
-		}
-		curNode2 = curNode2->next;
-	}
-	return curNode1;
-}
-
-void delete_n(List *list, int n){
-	if(list == NULL){
-		printf("list is null");
-		return ;
-	}
-	if(getLength(list) < n){
-		printf("no such more items");
-		return ;
-	}
-	Node *curNode1, *curNode2, *tempNode;
-	curNode1 = curNode2 = list->head;
-	tempNode = NULL;
-	for(int i=2; i<=n && curNode2 != NULL; i++){
-		curNode2 = curNode2->next;
-	}
-	while(curNode2->next != NULL){
-		tempNode = curNode1;
-		curNode1 = curNode1->next;
-		curNode2 = curNode2->next;
-	}
-	if(curNode1 == list->head){
-		list->head = curNode1->next;
-		free(curNode1);
-		--(list->length);
-		return;
-	}
-	tempNode->next = curNode1->next;
-	free(curNode1);
-	--(list->length);
-}
 
 int getLength(List *list){
 	return list->length;
 }
+
+void itemAssign(elementType_LIST *pLValue, elementType_LIST rValue){
+	pLValue->sockid = rValue.sockid;
+	pLValue->status = rValue.status;
+	pLValue->userType = rValue.userType;
+	pLValue->userInfo_c.id = rValue.userInfo_c.id;
+	memset(pLValue->userInfo_c.name, 0, sizeof(pLValue->userInfo_c.name));
+	memset(pLValue->userInfo_c.pwd, 0, sizeof(pLValue->userInfo_c.pwd));
+	strncpy(pLValue->userInfo_c.name, rValue.userInfo_c.name, strlen(rValue.userInfo_c.name));
+	strncpy(pLValue->userInfo_c.pwd,  rValue.userInfo_c.pwd, strlen(rValue.userInfo_c.pwd));
+}
+
+int isEqual_itemID(elementType_LIST itemA, elementType_LIST itemB){
+	return itemA.userInfo_c.id == itemB.userInfo_c.id;
+}
+int isEqual_itemName(elementType_LIST itemA, elementType_LIST itemB){
+	return strncmp(itemA.userInfo_c.name, itemB.userInfo_c.name,
+	 strlen(itemA.userInfo_c.name)) == 0 ? 1 : 0;
+}
+
+int isEqual_itemSockID(elementType_LIST itemA, elementType_LIST itemB){
+	return itemA.sockid == itemB.sockid;
+}
+
+void showItem(elementType_LIST item){
+	printf("sockid: %d\n", item.sockid);
+	printf("userName: %s\n", item.userInfo_c.name);
+	printf("pwd: %s\n", item.userInfo_c.pwd);
+	printf("status: %d\n", item.status);
+	printf("userType:%d\n", item.userType);
+}
+

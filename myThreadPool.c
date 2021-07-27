@@ -5,7 +5,7 @@ void* threadFunc(void* arg){
     while(1){ 
         //printf("%d: 1\n", pthread_self());
         pthread_mutex_lock(&pthpool->mutex_taskQueue);
-        while(isEmpty(pthpool->queue)){
+        while(isEmpty_queue(pthpool->queue)){
             if(pthpool->isExit){//销毁线程池开始且任务队列为空就退出
                 pthread_mutex_unlock(&pthpool->mutex_taskQueue);
                 break;
@@ -40,7 +40,7 @@ void* threadFunc(void* arg){
         pthread_mutex_lock(&pthpool->mutex_threadPool);
         //printf("%d: 4\n", pthread_self());
 
-        if(pthpool->isExit && isEmpty(pthpool->queue)){//线程池销毁开始且任务队列为空就退出线程
+        if(pthpool->isExit && isEmpty_queue(pthpool->queue)){//线程池销毁开始且任务队列为空就退出线程
             if(pthread_detach(pthread_self()) != 0){
                 printf("detach thread: %ld fail\n", pthread_self());
             }
@@ -59,8 +59,7 @@ void* threadFunc(void* arg){
 
         (pthpool->threadNum_busy)++;
         pthread_mutex_unlock(&pthpool->mutex_threadPool); 
-
-        task.taskFunc(task.arg1, task.arg2, task.arg3, task.arg4);
+        task.taskFunc(task.arg1, task.arg2, task.arg3);
 
         pthread_mutex_lock(&pthpool->mutex_threadPool);
         //printf("%d: 6\n", pthread_self());
@@ -123,7 +122,7 @@ void* threadsManager(void* arg){
         sleep(2);
         pthread_mutex_lock(&pthpool->mutex_taskQueue);
         pthread_mutex_lock(&pthpool->mutex_threadPool);
-        if(pthpool->threadNum_busy == pthpool->threadNum_active && !isEmpty(pthpool->queue)){//任务队列到达容量2/3就把线程数扩容
+        if(pthpool->threadNum_busy == pthpool->threadNum_active && !isEmpty_queue(pthpool->queue)){//任务队列到达容量2/3就把线程数扩容
             expendThreadPool(pthpool);
         }
         pthread_mutex_unlock(&pthpool->mutex_threadPool);

@@ -90,7 +90,7 @@ void formatMsgToJson_msgToClient(const msgToClient msg, char *jsonContainer){
         return;
     }
     cJSON_AddNumberToObject(json, "result", msg.result);
-    cJSON_AddNumberToObject(json, "reasonCode", msg.result);
+    cJSON_AddNumberToObject(json, "reasonCode", msg.reasonCode);
     cJSON_AddNumberToObject(json, "nameNum", msg.nameNum);
     cJSON_AddNumberToObject(json, "action", (int)msg.action);
     cJSON *names = cJSON_AddArrayToObject(json, "names");

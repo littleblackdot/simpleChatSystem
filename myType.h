@@ -4,7 +4,7 @@
 #include "lib_use.h"
 
 typedef enum ActionType_Client{
-    Register, Login, Chat, broadCast, sendFile, showOnline, superOperation
+    Register, Login, Chat, sendFile, showOnline, superOperation
 }ActionType_Client;
 
 typedef enum ActionType_Server{
@@ -34,8 +34,8 @@ typedef struct MSGTOSERVER{
 
 
 typedef struct MSGTOCLIENT{
-    int result;
-    int reasonCode;
+    int result;//客户端业务请求处理结果，1 成功   0失敗
+    int reasonCode;//错误码，请求失败时有意义
     int nameNum;
     ActionType_Server action;
     char (*names)[40];
@@ -56,14 +56,14 @@ struct msgbuf{
 };
 
 
-typedef void (*taskFuncType)(void *, void*, void *, void *);
+typedef void (*taskFuncType)(void *, void*, void *);
 typedef struct Task{
 	taskFuncType taskFunc;
 	void *arg1;
     void *arg2;
     void *arg3;
-    void *arg4;
 }Task;
 
+typedef void (*clientWorkFuncType)(int );
 
 #endif

@@ -5,29 +5,29 @@
 #include "lib_use.h"
 #include "myType.h"
 
-#define elementType Task
+#define elementType_QUEUE Task
 
 
 typedef struct Node
 {
-	elementType item;
+	elementType_QUEUE item;
 	struct Node *next;
-}Node;
+}Node_Queue;
 
 
 typedef struct Queue
 {
-	Node *front;//队列头
-	Node *rear;//队列尾
+	Node_Queue *front;//队列头
+	Node_Queue *rear;//队列尾
 	int capacity;//容量
 	int len;//长度
 }Queue;
 
 Queue* createQueue(int Capacity);
-void addItem(Queue* queue, elementType item);
-int isEmpty(Queue* queue);
+void addItem(Queue* queue, elementType_QUEUE item);
+int isEmpty_queue(Queue* queue);
 int isFull(Queue* queue);
-elementType deleteItem(Queue* queue);
+elementType_QUEUE deleteItem(Queue* queue);
 void destoryQueue(Queue** pqueue);
 
 #endif

@@ -16,7 +16,7 @@ Queue* createQueue(int Capacity)
 	return queue;
 }
 
-int isEmpty(Queue *queue)
+int isEmpty_queue(Queue *queue)
 {
 	if(queue == NULL)
 	{
@@ -34,14 +34,14 @@ int isFull(Queue *queue){
 	return queue->len == queue->capacity;
 }
 
-void addItem(Queue *queue, elementType item)
+void addItem(Queue *queue, elementType_QUEUE item)
 {
 	if(queue == NULL)
 	{
 		printf("queue is null\n");
 		return ;
 	}
-	Node *node = (Node*)malloc(sizeof(Node));
+	Node_Queue *node = (Node_Queue*)malloc(sizeof(Node_Queue));
 	if(node == NULL)
 	{
 		printf("fail to alloc memory\n");
@@ -49,7 +49,7 @@ void addItem(Queue *queue, elementType item)
 	}
 	node->item = item;
 	node->next = NULL;
-	if(isEmpty(queue))
+	if(isEmpty_queue(queue))
 	{
 		queue->front = queue->rear = node;
 		(queue->len)++;
@@ -60,16 +60,16 @@ void addItem(Queue *queue, elementType item)
 	queue->rear = node;
 }
 
-elementType deleteItem(Queue* queue)
+elementType_QUEUE deleteItem(Queue* queue)
 {
-	Node *node;
-	elementType item;
+	Node_Queue *node;
+	elementType_QUEUE item;
 	if(queue == NULL)
 	{
 		printf("queue is null\n");
 		return item;
 	}
-	if(isEmpty(queue))
+	if(isEmpty_queue(queue))
 	{
 		printf("no item in the queue\n");
 		return item;
@@ -91,9 +91,9 @@ void destoryQueue(Queue** pqueue)
 		return;
 	}
 	Queue *queue = *pqueue;
-	while(!isEmpty(queue))
+	while(!isEmpty_queue(queue))
 	{
-		Node *node = queue->front;
+		Node_Queue *node = queue->front;
 		queue->front = node->next;
 		free(node);
 	}
