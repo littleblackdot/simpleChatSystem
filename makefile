@@ -3,7 +3,7 @@ object1 = server.o dataParse.o myNet.o cJSON.o queue.o serverWork.o myThreadPool
 object2 = client.o dataParse.o cJSON.o clientWork.o
 binary_file : $(object1) $(object2)
 	$(CC) $(object1) -o server -lpthread -lsqlite3
-	$(CC) $(object2) -o client
+	$(CC) $(object2) -o client -lpthread
 server.o : server.c
 	$(CC) -c server.c  
 

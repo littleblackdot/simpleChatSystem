@@ -50,7 +50,7 @@ Node_List* findNode(List* list, elementType_LIST item, callBackFunc isEqual_item
 		printf("there is no items in list\n");
 		return NULL;
 	}
-	Node_List* p;
+	Node_List* p = NULL;
 	for(p=list->head; p!=NULL; p=p->next){
 		if(isEqual_item(p->item , item)){
 			break;

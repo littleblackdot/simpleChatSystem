@@ -1,7 +1,7 @@
 #include "dataParse.h"
 
 
-void formatMsgToJson_msgToServer(const msgToServer msg, char * jsonContainer){
+void formatMsgToJson_msgToServer(msgToServer msg, char * jsonContainer){
     cJSON *json = cJSON_CreateObject();
     if(json == NULL){
         printf("format error, check your configuration\n");
@@ -82,7 +82,7 @@ void parseJsonData_Server(msgToServer *pmsg, const char *jsonData){
 }
 
 
-void formatMsgToJson_msgToClient(const msgToClient msg, char *jsonContainer){
+void formatMsgToJson_msgToClient(msgToClient msg, char *jsonContainer){
     char *buffer;
     cJSON *json = cJSON_CreateObject();
     if(json == NULL){
@@ -158,6 +158,109 @@ void parseJsonData_Client(msgToClient *pmsg, const char *jsonData){
     cJSON_Delete(json);
 }
 
+
+void formatFileInfoToJson(FileInfo fileInfo, char * jsonContainer){
+    char *buffer;
+    cJSON *json = cJSON_CreateObject();
+    if(json == NULL){
+        printf("cjson create error\n");
+        return;
+    }
+    cJSON_AddStringToObject(json, "name", fileInfo.name);
+    cJSON_AddNumberToObject(json, "size", fileInfo.size);
+    cJSON_AddNumberToObject(json, "blockSize", fileInfo.blockSize);
+    cJSON_AddNumberToObject(json, "count", fileInfo.count);
+    buffer = cJSON_Print(json);
+    strncpy(jsonContainer, buffer, strlen(buffer));
+    free(buffer);
+    cJSON_Delete(json);
+}
+
+void parseJsonData_FileInfo(FileInfo *pfileInfo, const char *jsonData){
+    cJSON *json = NULL;
+    json = cJSON_Parse(jsonData);
+    if(json == NULL){
+        printf("json is NULL\n");
+        return;
+    }
+ 
+    cJSON *name = cJSON_GetObjectItemCaseSensitive(json, "name");
+    if(name != NULL){
+        if(cJSON_IsString(name)){
+           bzero(pfileInfo->name, sizeof(pfileInfo->name));
+           strncpy(pfileInfo->name, name->valuestring, strlen(name->valuestring));
+        }
+    }
+    cJSON *size = cJSON_GetObjectItemCaseSensitive(json, "size");
+    if(size != NULL){
+        if(cJSON_IsNumber(size)){
+            pfileInfo->size = size->valueint;
+        }
+    }
+    
+    cJSON *blockSize = cJSON_GetObjectItemCaseSensitive(json, "blockSize");
+    if(blockSize != NULL){
+        if(cJSON_IsNumber(blockSize)){
+            pfileInfo->blockSize = blockSize->valueint;
+        }
+    }
+    cJSON *count = cJSON_GetObjectItemCaseSensitive(json, "count");
+    if(count != NULL){
+        if(cJSON_IsNumber(count)){
+            pfileInfo->count = count->valueint;
+        }
+    }
+    cJSON_Delete(json);
+}
+
+void formatPartOfFileInfoToJson(PartOfFile part, char *jsonContainer){
+    char *buffer;
+    cJSON *json = cJSON_CreateObject();
+    if(json == NULL){
+        printf("cjson create error\n");
+        return;
+    }
+    cJSON_AddNumberToObject(json, "offset", part.offset);
+    cJSON_AddNumberToObject(json, "seq", part.seq);
+    cJSON_AddNumberToObject(json, "realsize", part.realsize);
+    cJSON_AddStringToObject(json, "body", part.body);
+    buffer = cJSON_Print(json);
+    strncpy(jsonContainer, buffer, strlen(buffer));
+    free(buffer);
+    cJSON_Delete(json);
+}
+
+
+void parseJsonData_PartOfFile(PartOfFile *part, const char *jsonData){
+    cJSON *json = NULL;
+    json = cJSON_Parse(jsonData);
+    if(json == NULL){
+        printf("json is NULL\n");
+        return;
+    }
+ 
+    cJSON *body = cJSON_GetObjectItemCaseSensitive(json, "body");
+    if(body != NULL){
+        if(cJSON_IsString(body)){
+           bzero(part, sizeof(part->body));
+           strncpy(part->body, body->valuestring, strlen(body->valuestring));
+        }
+    }
+    cJSON *seq = cJSON_GetObjectItemCaseSensitive(json, "seq");
+    if(seq != NULL){
+        if(cJSON_IsNumber(seq)){
+            part->seq = seq->valueint;
+        }
+    }
+    
+    cJSON *realsize = cJSON_GetObjectItemCaseSensitive(json, "realsize");
+    if(realsize != NULL){
+        if(cJSON_IsNumber(realsize)){
+            part->realsize = realsize->valueint;
+        }
+    }
+    cJSON_Delete(json);
+}
 
 void showMsg_msgToServer(const msgToServer msg){
     printf("action: %d\n", msg.action);

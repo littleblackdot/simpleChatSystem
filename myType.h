@@ -3,12 +3,16 @@
 
 #include "lib_use.h"
 
+#define FILENAMELEN 128
+#define FILEPATHLEN 256
+#define FILEDIVLEN 512 //每次传输的文件主题最大大小
+
 typedef enum ActionType_Client{
-    Register, Login, Chat, sendFile, showOnline, superOperation
+    Register, Login, Chat, fileOperation, showOnline, superOperation
 }ActionType_Client;
 
 typedef enum ActionType_Server{
-    chatResultReturn, showUsers, sendFileRequest, messagePost, superOperationResultReturn
+    chatResultReturn, showUsers, sendFileRequest, messagePost, superOperationResultReturn, fileOperationResultReturn
 }ActionType_Server;
 
 typedef enum StatusType{
@@ -54,6 +58,21 @@ struct msgbuf{
     long mtype;
     char mtext[BUFFER_SIZE];
 };
+
+typedef struct FileInfo{
+    char name[FILENAMELEN];
+    int size;//文件大小
+    int blockSize;//单个数据包包含文件主体大小
+    int count;//文件分块数量
+}FileInfo;
+
+
+typedef struct PartOfFile{
+    int offset;//文件分块的起始位置
+    int seq;
+    int realsize;
+    char body[FILEDIVLEN];
+}PartOfFile;
 
 
 typedef void (*taskFuncType)(void *, void*, void *, void *);

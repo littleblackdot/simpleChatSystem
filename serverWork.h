@@ -10,7 +10,7 @@
 void work_register(void *, void*, void*, void*);
 void work_login(void *, void*, void*, void*);
 void work_chat(void *, void*, void*, void*);
-void work_fileSend(void *, void*, void*, void*);
+void work_fileOperation(void *, void*, void*, void*);
 void work_showOnline(void *, void*, void*, void*);
 void work_superOperation(void *, void*, void*, void*);
 

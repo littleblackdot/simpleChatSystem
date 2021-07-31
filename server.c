@@ -29,7 +29,7 @@ int main(){
     pThreadPool pthpool = threadPoolInit(10, 30);
     pthread_mutex_init(&dataBase_mutex, NULL);
     pthread_mutex_init(&userList_mutex, NULL);
-    taskFuncType taskFuncs[6] = {work_register, work_login, work_chat, work_fileSend, work_showOnline, work_superOperation};
+    taskFuncType taskFuncs[6] = {work_register, work_login, work_chat, work_fileOperation, work_showOnline, work_superOperation, };
     while(1){
         int count = epoll_wait(epid, all, sizeof(all)/sizeof(all[0]), -1);
         struct sockaddr_in clientAddr;

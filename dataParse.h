@@ -9,13 +9,20 @@
 
 
 
-void formatMsgToJson_msgToServer(const msgToServer msg, char * jsonContainer);
+void formatMsgToJson_msgToServer(msgToServer msg, char * jsonContainer);
 void parseJsonData_Server(msgToServer *pmsg, const char *jsonData);
-void showMsg_msgToServer(const msgToServer msg);
+void showMsg_msgToServer(msgToServer msg);
 
-void formatMsgToJson_msgToClient(const msgToClient msg, char * jsonContainer);
+void formatMsgToJson_msgToClient(msgToClient msg, char * jsonContainer);
 void parseJsonData_Client(msgToClient *pmsg, const char *jsonData);         
-void showMsg_msgToClient(const msgToClient msg);
+void showMsg_msgToClient(msgToClient msg);
+
+void formatFileInfoToJson(FileInfo fileInfo, char * jsonContainer);
+void parseJsonData_FileInfo(FileInfo *pfileInfo, const char *jsonData);
+
+
+void formatPartOfFileInfoToJson(PartOfFile part, char *jsonContainer);
+void parseJsonData_PartOfFile(PartOfFile *part, const char *jsonData);
 
 
 #endif
