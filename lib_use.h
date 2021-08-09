@@ -22,6 +22,7 @@
 #include<sys/ipc.h>
 #include<sys/shm.h>
 #include<sys/msg.h>
+#include<sys/mman.h>
 
 #define BUFFER_SIZE 1024
 

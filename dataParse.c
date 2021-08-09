@@ -242,8 +242,14 @@ void parseJsonData_PartOfFile(PartOfFile *part, const char *jsonData){
     cJSON *body = cJSON_GetObjectItemCaseSensitive(json, "body");
     if(body != NULL){
         if(cJSON_IsString(body)){
-           bzero(part, sizeof(part->body));
-           strncpy(part->body, body->valuestring, strlen(body->valuestring));
+           bzero(part->body, sizeof(part->body));
+           strncpy(part->body, body->valuestring, sizeof(part->body));
+        }
+    }
+    cJSON *offset = cJSON_GetObjectItemCaseSensitive(json, "offset");
+    if(offset != NULL){
+        if(cJSON_IsNumber(offset)){
+           part->offset = offset->valueint;
         }
     }
     cJSON *seq = cJSON_GetObjectItemCaseSensitive(json, "seq");

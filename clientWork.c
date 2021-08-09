@@ -1,5 +1,5 @@
 #include "clientWork.h"
-
+#include "lib_use.h"
 
 void work_register(int sockid ){
     if(isLogin ==1){
@@ -39,13 +39,14 @@ void work_login(int sockid){
     msgToServer msg_s;
     msgToClient msg_c;
     char buffer[BUFFER_SIZE];
+    char *pwd;
     memset(buffer, 0, sizeof(buffer));
     memset(msg_s.userInfo.name, 0, sizeof(msg_s.userInfo.name));
     memset(msg_s.userInfo.pwd, 0, sizeof(msg_s.userInfo.pwd));
     printf("输入帐号id：\n");
     scanf("%d", &msg_s.userInfo.id);
-    printf("输入密码：\n");
-    scanf("%s", msg_s.userInfo.pwd);
+    pwd = getpass("输入密码\n");
+    strncpy(msg_s.userInfo.pwd, pwd, strlen(pwd));
     msg_s.action = Login;
     formatMsgToJson_msgToServer(msg_s, buffer);
     write(sockid, buffer, strlen(buffer));
@@ -103,6 +104,10 @@ void work_chat(int sockid){
 }
 
 void work_sendFile(int sockid){
+    if(isLogin != 1){
+        printf("请先登录再操作\n");
+        return;
+    }
     msgToServer msg_s;
     FileInfo fileInfo;
     struct stat filestat;
@@ -246,6 +251,10 @@ void messReceive(int sockid){
             break;
         }
         case sendFileRequest:{
+            switch(msg_c.reasonCode){
+                case 0: printf("你收到了一个来自用户：%s的文件传输请求, 键入0以刷新显示\n", msg_c.names[0]);break;
+                case 1: printf("对方接受了你的文件传送请求，键入0开始文件传输.......\n");break;
+            }
             struct msgbuf msg;
             bzero(&msg, sizeof(msg));
             strncpy(msg.mtext, buffer, strlen(buffer));
@@ -284,7 +293,7 @@ void fileSendHelper(int sockid, const msgToClient *pmsg, const char *filepath){
     msgToServer msg_s;
     char buffer[BUFFER_SIZE];
     if(pmsg->reasonCode == 0){
-        printf("你收到了一个来自用户：%s的文件传输请求，请选择\n", pmsg->names[0]);
+        
         printf("1.同意\n2.拒绝\n");
         scanf("%d", &option);
         bzero(msg_s.userInfo.name, sizeof(msg_s.userInfo.name));
@@ -308,7 +317,7 @@ void fileSendHelper(int sockid, const msgToClient *pmsg, const char *filepath){
         send(sockid, buffer, strlen(buffer), 0);
         return;
     }
-    printf("对方接受了你的文件传送请求，文件传输开始.......\n");
+    
     sendFile(pmsg->message, filepath);
 }
 
@@ -336,14 +345,16 @@ void receiveFile(int sockid, FileInfo *pfileInfo){
     socklen_t addrLen = sizeof(struct sockaddr_in);
     int opt = 1;
     char buffer[BUFFER_SIZE];
+    char *fileBegin;
     bzero(&hostAddr, sizeof(hostAddr));
     
     getsockname(sockid, (struct sockaddr*)&hostAddr, (socklen_t*)&addrLen);
-    int fd  = open(pfileInfo->name, O_RDWR|O_CREAT|O_TRUNC|O_APPEND, 0655);
+    createfile(pfileInfo->name, pfileInfo->size);
+    int fd  = open(pfileInfo->name, O_RDWR);
     if(fd < 0){
         perror("file create fail");
     }
-
+    fileBegin= (char*)mmap(NULL, pfileInfo->size, PROT_READ|PROT_WRITE,MAP_SHARED, fd, 0);
     setsockopt(listenFd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)); 
     if(bind(listenFd, (struct sockaddr *)&hostAddr, sizeof(hostAddr)) != 0){
         perror("listenfd bind failed");
@@ -355,7 +366,6 @@ void receiveFile(int sockid, FileInfo *pfileInfo){
     for(int i = 0; i < 8; i++){
         bzero(&peerAddr, sizeof(peerAddr));
         int connfd = accept(listenFd, (struct sockaddr*)&peerAddr, &addrLen);
-        printf("accept : %d\n", i);
         if(connfd == -1){
             perror("accept error");
         }
@@ -368,27 +378,35 @@ void receiveFile(int sockid, FileInfo *pfileInfo){
             //子进程接收文件分块
             int udpfd = socket(AF_INET, SOCK_DGRAM, 0);
             int count = pfileInfo->blockSize;
+            int len ;
             PartOfFile part;
             getsockname(connfd, (struct sockaddr *)&hostAddr, &addrLen);
-            setsockopt(listenFd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)); 
+            setsockopt(udpfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)); 
             bind(udpfd, (struct sockaddr *)&hostAddr, sizeof(hostAddr));
            
             while(count == pfileInfo->blockSize){
                 bzero(buffer, sizeof(buffer));
-                recvfrom(udpfd, buffer, sizeof(buffer), 0, (struct sockaddr*)&peerAddr, (socklen_t *)&addrLen);
+                len = recv(connfd, buffer, sizeof(buffer), 0);
+                //printf("len: %d\n", len);
+                /* if(len <= 0){
+                    break;
+                } */
                 //printf("receive:%s\n", buffer);
                 bzero(part.body, sizeof(part.body));
+                //printf("buffer:%s\n", buffer);
                 parseJsonData_PartOfFile(&part, buffer);
                 count = part.realsize;
-                pthread_mutex_lock(&mutex_fd);
-                lseek(fd, part.offset, SEEK_SET);
-                printf("%d:part.body:%s\n", i, part.body);
-                write(fd, part.body, part.realsize);
-                pthread_mutex_unlock(&mutex_fd);
+                //lseek(fd, part.offset, SEEK_SET);
+                //printf("%d:part.body:%s\n", i, part.body);
+                memcpy(fileBegin+part.offset, part.body, part.realsize);
+                //write(fd, part.body, part.realsize);
             }
+            shutdown(connfd, SHUT_RDWR);
             exit(1);
         }   
     }
+    close(fd);
+    munmap(fileBegin, pfileInfo->size);
     wait(NULL);
 }
 
@@ -400,7 +418,7 @@ void sendFile(const char* goalAddr, const char* filePath){
     struct stat filestat;
     socklen_t addrLen = sizeof(struct sockaddr_in);
     char buffer[BUFFER_SIZE];
-
+    char *fileBegin; 
     if(fd < 0){
         perror("open file error");
         return ;
@@ -409,16 +427,10 @@ void sendFile(const char* goalAddr, const char* filePath){
     bzero(&addr, sizeof(addr));
     parseIPADDR(goalAddr, &addr);
     addr.sin_family = AF_INET; 
+    printf("%s:%d\n", inet_ntoa(addr.sin_addr), addr.sin_port);
     fstat(fd ,&filestat);
-    int connfd = socket(AF_INET, SOCK_STREAM, 0);
-    setsockopt(connfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-    if(connect(connfd, (struct sockaddr *)&addr, sizeof(addr)) != 0){
-        perror("connect failed");
-        exit(1);
-    }else{
-        printf("Connect \n");
-    }
-
+    fileBegin= (char*)mmap(NULL, filestat.st_size, PROT_READ,MAP_SHARED, fd, 0);
+    
     for(int i = 0; i < 8; i++){
         int pid = fork();
         if(pid == 0){
@@ -439,21 +451,25 @@ void sendFile(const char* goalAddr, const char* filePath){
             part.seq = i;
             partFileSize = i < 7 ? (filestat.st_size/8) : filestat.st_size - (filestat.st_size/8)*i;
             while(partFileSize > 0){
-                lseek(fd, part.offset, SEEK_SET);
+                //lseek(fd, part.offset, SEEK_SET);
                 bzero(part.body, sizeof(part.body));
                 bzero(buffer, sizeof(buffer));
-                part.realsize = partFileSize > blockSize ? blockSize: partFileSize;
+                part.realsize = partFileSize > blockSize ? blockSize : partFileSize;
                 partFileSize -= part.realsize;
-                read(fd, part.body, part.realsize);
+                //read(fd, part.body, part.realsize);
+                memcpy(part.body, fileBegin+part.offset, part.realsize);
                 formatPartOfFileInfoToJson(part, buffer);
-                printf("%d send:%s\n", i, buffer);
-                sendto(udpfd ,buffer, strlen(buffer), 0, (struct sockaddr *)&addr2, sizeof(addr2));
+                //printf("%d send:%s\n", i, buffer);
+                send(connfd, buffer, sizeof(buffer), 0);
+                //sendto(udpfd ,buffer, strlen(buffer), 0, (struct sockaddr *)&addr2, sizeof(addr2));
                 part.offset += partFileSize;
             }
+            shutdown(connfd, SHUT_RDWR);
             exit(1);
-        }
-        wait(NULL);
+        } 
     }
+    wait(NULL);
+    munmap(fileBegin, filestat.st_size);
 }
 
 void parseIPADDR(const char* addrString, struct sockaddr_in *addr){
@@ -467,4 +483,14 @@ void parseIPADDR(const char* addrString, struct sockaddr_in *addr){
     i++;
     addr->sin_addr.s_addr = inet_addr(temp);
     addr->sin_port = atoi(addrString+i);
+}
+
+int createfile(char *filename, int size)
+{
+	int fd = open(filename, O_RDWR | O_CREAT);
+	fchmod(fd, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
+	int pos = lseek(fd, size-1, SEEK_SET);
+	write(fd, "", 1);
+	close(fd);
+	return 0;
 }

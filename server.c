@@ -10,11 +10,14 @@
 #define IPV4ADDRLEN 16
 void sigHander(int sign);
 
+int sockid;
+pThreadPool pthpool;
+
 pthread_mutex_t dataBase_mutex;
 pthread_mutex_t userList_mutex; 
 
 int main(){
-    int sockid = socketInit_TCP(SERVER_LISTENPORT, SERVER_IPADDRESS);
+    sockid = socketInit_TCP(SERVER_LISTENPORT, SERVER_IPADDRESS);
     int pid; 
     int epid = epoll_create(EPOLLCAPACITY_INIT);
     List *list = createList();
@@ -26,7 +29,7 @@ int main(){
     ev.data.fd = sockid;
     ev.events = EPOLLIN;
     epoll_ctl(epid, EPOLL_CTL_ADD, sockid, &ev);
-    pThreadPool pthpool = threadPoolInit(10, 30);
+    pthpool = threadPoolInit(10, 30);
     pthread_mutex_init(&dataBase_mutex, NULL);
     pthread_mutex_init(&userList_mutex, NULL);
     taskFuncType taskFuncs[6] = {work_register, work_login, work_chat, work_fileOperation, work_showOnline, work_superOperation, };
@@ -70,7 +73,7 @@ int main(){
                 char *message = (char*)malloc(sizeof(char) * BUFFER_SIZE);
                 UserInfo_server *userInfo_s = (UserInfo_server *)malloc(sizeof(UserInfo_server));
                 msgToServer msg;
-                printf("buffer:%s\n", buffer);
+                //printf("buffer:%s\n", buffer);
                 parseJsonData_Server(&msg, buffer);
                
                 userInfo_s->sockid = sockid2;
@@ -93,4 +96,15 @@ int main(){
         }  
     }
     return 0;
+}
+
+void singHander(int sign){
+    if(sign == SIGINT){
+        pthread_mutex_destroy(&dataBase_mutex);
+        pthread_mutex_destroy(&userList_mutex);
+        threadPoolDestroy(&pthpool);
+        shutdown(sockid, SHUT_RDWR);
+        exit(1);
+    }
+
 }

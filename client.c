@@ -8,7 +8,6 @@ int isLogin = 0;
 static int sockid ;
 int msgid ;
 
-pthread_mutex_t mutex_fd = PTHREAD_MUTEX_INITIALIZER;
 
 int main(){
     sockid = socket(AF_INET, SOCK_STREAM, 0);
