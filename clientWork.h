@@ -8,6 +8,7 @@
 
 extern int isLogin;
 extern int msgid;
+extern int logfd;
 
 void work_register(int sockid);
 void work_login(int sockid);

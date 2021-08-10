@@ -388,9 +388,9 @@ void receiveFile(int sockid, FileInfo *pfileInfo){
                 bzero(buffer, sizeof(buffer));
                 len = recv(connfd, buffer, sizeof(buffer), 0);
                 //printf("len: %d\n", len);
-                /* if(len <= 0){
+                if(len <= 0){
                     break;
-                } */
+                }
                 //printf("receive:%s\n", buffer);
                 bzero(part.body, sizeof(part.body));
                 //printf("buffer:%s\n", buffer);
@@ -405,6 +405,7 @@ void receiveFile(int sockid, FileInfo *pfileInfo){
             exit(1);
         }   
     }
+    printf("文件接受完成\n");
     close(fd);
     munmap(fileBegin, pfileInfo->size);
     wait(NULL);
@@ -427,7 +428,7 @@ void sendFile(const char* goalAddr, const char* filePath){
     bzero(&addr, sizeof(addr));
     parseIPADDR(goalAddr, &addr);
     addr.sin_family = AF_INET; 
-    printf("%s:%d\n", inet_ntoa(addr.sin_addr), addr.sin_port);
+    //printf("%s:%d\n", inet_ntoa(addr.sin_addr), addr.sin_port);
     fstat(fd ,&filestat);
     fileBegin= (char*)mmap(NULL, filestat.st_size, PROT_READ,MAP_SHARED, fd, 0);
     
@@ -468,6 +469,7 @@ void sendFile(const char* goalAddr, const char* filePath){
             exit(1);
         } 
     }
+    printf("文件发送完成\n");
     wait(NULL);
     munmap(fileBegin, filestat.st_size);
 }

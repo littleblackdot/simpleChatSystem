@@ -11,6 +11,7 @@
 void sigHander(int sign);
 
 int sockid;
+int logfd;
 pThreadPool pthpool;
 
 pthread_mutex_t dataBase_mutex;
@@ -23,9 +24,9 @@ int main(){
     List *list = createList();
     struct epoll_event ev;
     struct epoll_event all[EPOLLCAPACITY_INIT];
-    
     char buffer[BUFFER_SIZE];
-
+    char log[BUFFER_SIZE];
+    logfd = open("log_server.txt", O_RDWR|O_CREAT|O_APPEND, 0655);
     ev.data.fd = sockid;
     ev.events = EPOLLIN;
     epoll_ctl(epid, EPOLL_CTL_ADD, sockid, &ev);
@@ -61,7 +62,10 @@ int main(){
                         pthread_mutex_lock(&userList_mutex);
                         delNode(list, offLineNode->item, isEqual_itemID);
                         pthread_mutex_unlock(&userList_mutex);
-                        printf("用户下线 id :%d\n", offLineNode->item.userInfo_c.id);
+                        bzero(log, sizeof(log));
+                        sprintf(log, "用户下线 id :%d\n", offLineNode->item.userInfo_c.id);
+                        printf(log);
+                        write(logfd, log, strlen(log));
                     } 
                     shutdown(sockid2,SHUT_RDWR);
                     t.data.fd = sockid2;
@@ -104,6 +108,7 @@ void singHander(int sign){
         pthread_mutex_destroy(&userList_mutex);
         threadPoolDestroy(&pthpool);
         shutdown(sockid, SHUT_RDWR);
+        close(logfd);
         exit(1);
     }
 

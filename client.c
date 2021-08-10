@@ -7,7 +7,7 @@ void sigHander(int sig);
 int isLogin = 0;
 static int sockid ;
 int msgid ;
-
+int logfd;
 
 int main(){
     sockid = socket(AF_INET, SOCK_STREAM, 0);
@@ -22,6 +22,7 @@ int main(){
     addr.sin_port = htons(11234);//转换字节序
     addr.sin_addr.s_addr = inet_addr("192.168.124.131");
     setsockopt(sockid, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+    logfd = open("log_client.txt", O_RDWR|O_CREAT|O_APPEND, 0655);
     if(connect(sockid, (struct sockaddr *)&addr, sizeof(addr)) != 0){
         perror("connect failed");
         exit(1);
@@ -50,12 +51,14 @@ int main(){
 void sigHander(int sig){
     if(sig == SIGINT){
         msgctl(msgid, IPC_RMID, NULL);
+        close(logfd);
         wait(NULL);
         exit(0);
     }
     if(sig==SIGALRM){
         isLogin = 0;
         shutdown(sockid, SHUT_RDWR);
+        close(logfd);
         wait(NULL);
     }
 }

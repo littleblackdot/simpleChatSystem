@@ -11,6 +11,7 @@ void work_register(void * userList, void * userInfo, void * pOption, void * mess
     msgToClient msg;
     char sql[BUFFER_SIZE];
     char buffer[BUFFER_SIZE];
+    char log[BUFFER_SIZE];
     char *errMsg;
     char **table;
     int columnCount;
@@ -39,6 +40,11 @@ void work_register(void * userList, void * userInfo, void * pOption, void * mess
     userInfo_s->userInfo_c.id = atoi(table[1]);
     pthread_mutex_unlock(&dataBase_mutex);
 
+    bzero(log, sizeof(log));
+    sprintf(log, "用户%s注册，id：%d\n", userInfo_s->userInfo_c.name, userInfo_s->userInfo_c.id);
+    printf(log);
+    write(logfd, log, strlen(log));
+
     msg.result = 1;
     memset(msg.message, 0, sizeof(msg.message));
     myItoA(userInfo_s->userInfo_c.id, msg.message);
@@ -61,6 +67,7 @@ void work_login(void * userList, void * userInfo,  void * pOption, void * messag
     msgToClient msg;
     char sql[BUFFER_SIZE];
     char buffer[BUFFER_SIZE];
+    char log[BUFFER_SIZE];
     char *errMsg;
     char **table;
     int columnCount;
@@ -81,16 +88,22 @@ void work_login(void * userList, void * userInfo,  void * pOption, void * messag
         send(userInfo_s->sockid, buffer, strlen(buffer), 0);
         sqlite3_free_table(table);
         sqlite3_close(db);
-        free(userInfo);
-        free(pOption);
-        free(message);
+        freeAll(userInfo, pOption, message);
         return ;
     }
+
+    
     memset(userInfo_s->userInfo_c.name, 0, sizeof(userInfo_s->userInfo_c.name));
     strncpy(userInfo_s->userInfo_c.name, table[columnCount*1 + 1], strlen(table[columnCount*1 + 1]));
     userInfo_s->userType = (UserType)atoi(table[columnCount*1 + 3]);
     userInfo_s->status = normal;
     
+    bzero(log, sizeof(log));
+    sprintf(log, "用户%s登录，id：%d\n", userInfo_s->userInfo_c.name, userInfo_s->userInfo_c.id);
+    printf("1\n");
+    printf(log);
+    write(logfd, log, strlen(log));
+
     pthread_mutex_lock(&userList_mutex);
     insertNode(list, *userInfo_s);
     pthread_mutex_unlock(&userList_mutex);
@@ -102,9 +115,7 @@ void work_login(void * userList, void * userInfo,  void * pOption, void * messag
     send(userInfo_s->sockid, buffer, strlen(buffer), 0);
     sqlite3_free_table(table);
     sqlite3_close(db);
-    free(userInfo);
-    free(pOption);
-    free(message);
+    freeAll(userInfo, pOption, message);
 }
 
 
@@ -116,19 +127,29 @@ void work_chat(void * userList, void * userInfo, void * pOption, void * message)
     int count = 0;
     msgToClient msg;
     char buffer[BUFFER_SIZE];
+    char log[BUFFER_SIZE];
     memset(buffer, 0, sizeof(buffer));
 
     pthread_mutex_lock(&userList_mutex);
-    Node_List *clientNode = findNode(list, *userInfo_s, isEqual_itemSockID);
+    Node_List clientNode;
+    Node_List *temp0 = findNode(list, *userInfo_s, isEqual_itemSockID);
+    if(temp0 == NULL){
+        printf("用户列表异常，操作发起用户不在线\n");
+        pthread_mutex_unlock(&userList_mutex);
+        freeAll(userInfo, pOption, message);
+        return;
+    }
+    userInfoCopy(&clientNode.item, temp0->item);
     pthread_mutex_unlock(&userList_mutex);
 
-    if(clientNode->item.status == postBanend){
+    if(clientNode.item.status == postBanend){
         msg.result = 0;
         msg.reasonCode = 1; //聊天错误码：0， 用户不在线， 1，被禁言
         msg.nameNum = 0;
         msg.action = chatResultReturn;
         formatMsgToJson_msgToClient(msg, buffer);
         send(userInfo_s->sockid, buffer, strlen(buffer), 0);
+        freeAll(userInfo, pOption, message);
         return ;
     }
 
@@ -141,13 +162,13 @@ void work_chat(void * userList, void * userInfo, void * pOption, void * message)
     for(; cur!=NULL; cur = cur->next){
         //printf("curName:%s\n", cur->item.userInfo_c.name);
         if((isEqual_itemName(cur->item, temp) || option) //私聊或群聊
-            && (!isEqual_itemSockID(cur->item, clientNode->item))){//自己不对自己发信息
+            && (!isEqual_itemSockID(cur->item, clientNode.item))){//自己不对自己发信息
             msg.result = 1;
             msg.nameNum = 1;
             msg.names = (char (*)[40])malloc(sizeof(char[40]) *msg.nameNum);
             memset(msg.names[0], 0, sizeof(char[40]));
             memset(msg.message, 0, sizeof(msg.message));
-            strncpy(msg.names[0], clientNode->item.userInfo_c.name, strlen(clientNode->item.userInfo_c.name));
+            strncpy(msg.names[0], clientNode.item.userInfo_c.name, strlen(clientNode.item.userInfo_c.name));
             strncpy(msg.message, mess, strlen(mess));
             msg.action = messagePost;
             memset(buffer, 0, sizeof(buffer));
@@ -161,16 +182,28 @@ void work_chat(void * userList, void * userInfo, void * pOption, void * message)
 
     if(count == 0){
         msg.result = 0;
+        pthread_mutex_lock(&userList_mutex);
         msg.reasonCode = findNode(list, *userInfo_s, isEqual_itemName) == NULL ? 0 : 2; //聊天错误码：0， 用户不在线， 1，被禁言, 2对自己发消息
+        pthread_mutex_unlock(&userList_mutex);
         msg.action = chatResultReturn;
         msg.nameNum = 0;
         formatMsgToJson_msgToClient(msg, buffer); 
         send(userInfo_s->sockid, buffer, strlen(buffer), 0);
     }
+    if(count == 1){
+        bzero(log, sizeof(log));
+        sprintf(log, "用户%s向用户%s私发消息:%s\n", clientNode.item.userInfo_c.name, temp.userInfo_c.name, mess);
+        printf(log);
+        write(logfd, log, strlen(log));
+    }
+    if(count > 1){
+        bzero(log, sizeof(log));
+        sprintf(log, "用户%s群发消息:%s\n", clientNode.item.userInfo_c.name, mess);
+        printf(log);
+        write(logfd, log, strlen(log));
+    }
        
-    free(userInfo);
-    free(pOption);
-    free(message);
+    freeAll(userInfo, pOption, message);
 }
 
 
@@ -185,21 +218,32 @@ void work_fileOperation(void * userList, void * userInfo, void * pOption, void *
 
     if(option == 0){//客户端发来文件发送请求
         pthread_mutex_lock(&userList_mutex);
+        
         Node_List *goalNode = findNode(list, *userInfo_s, isEqual_itemName);
         Node_List *clientNode = findNode(list, *userInfo_s,isEqual_itemSockID);
-        pthread_mutex_unlock(&userList_mutex);
+        UserInfo_server goalInfo, clientInfo;
+
         if(goalNode == NULL){//目标用户不在线
             msg.result = 0;
             msg.reasonCode = 0;
             msg.action = fileOperationResultReturn;
+            pthread_mutex_unlock(&userList_mutex);
             memset(buffer, 0, sizeof(buffer));
             formatMsgToJson_msgToClient(msg, buffer);
             send(userInfo_s->sockid, buffer, strlen(buffer), 0);
-            free(userInfo);
-            free(pOption);
-            free(message);
+            freeAll(userInfo, pOption, message); 
             return;
         }
+        if(clientNode == NULL){
+            printf("用户列表异常，操作发起用户不在线\n");
+            pthread_mutex_unlock(&userList_mutex);
+            freeAll(userInfo, pOption, message);
+            return;
+        }
+        userInfoCopy(&goalInfo, goalNode->item);
+        userInfoCopy(&clientInfo, clientNode->item);
+        pthread_mutex_unlock(&userList_mutex);
+
         msg.action = sendFileRequest;
         msg.result = 1;
         msg.nameNum = 1;
@@ -209,10 +253,10 @@ void work_fileOperation(void * userList, void * userInfo, void * pOption, void *
         strncpy(msg.message, mess , strlen(mess));
         msg.names = (char (*)[40])malloc(sizeof(char[40]) * msg.nameNum);
         bzero(msg.names[0], sizeof(char[40]));
-        strncpy(msg.names[0], clientNode->item.userInfo_c.name, strlen(clientNode->item.userInfo_c.name));
+        strncpy(msg.names[0], clientInfo.userInfo_c.name, strlen(clientInfo.userInfo_c.name));
         memset(buffer, 0, sizeof(buffer));
         formatMsgToJson_msgToClient(msg, buffer);
-        send(goalNode->item.sockid, buffer, strlen(buffer), 0);
+        send(goalInfo.sockid, buffer, strlen(buffer), 0);
         free(msg.names);
     }
 
@@ -225,11 +269,11 @@ void work_fileOperation(void * userList, void * userInfo, void * pOption, void *
 
         pthread_mutex_lock(&userList_mutex);
         Node_List *goalNode = findNode(list, *userInfo_s, isEqual_itemName);
-        pthread_mutex_unlock(&userList_mutex);
 
         if(goalNode != NULL ){
             send(goalNode->item.sockid, buffer, strlen(buffer), 0);
         }
+        pthread_mutex_unlock(&userList_mutex);
     }
 
     if(option == 2){//接收端同意文件传输
@@ -242,20 +286,22 @@ void work_fileOperation(void * userList, void * userInfo, void * pOption, void *
         msg.reasonCode = 1;
         //接收端ip端口号发给发送端...
         pthread_mutex_lock(&userList_mutex);
+        UserInfo_server goalInfo;
         Node_List *goalNode = findNode(list, *userInfo_s, isEqual_itemName);
-        pthread_mutex_unlock(&userList_mutex);
         if(goalNode == NULL){//发送端下线通知接受端
             msg.result = 0;
             msg.reasonCode = 2;
             msg.action = fileOperationResultReturn;
+            pthread_mutex_unlock(&userList_mutex);
             memset(buffer, 0, sizeof(buffer));
             formatMsgToJson_msgToClient(msg, buffer);
             send(userInfo_s->sockid, buffer, strlen(buffer), 0);
-            free(userInfo);
-            free(pOption);
-            free(message);
+            freeAll(userInfo, pOption, message);
             return ;
         }
+        userInfoCopy(&goalInfo, goalNode->item);
+        pthread_mutex_unlock(&userList_mutex);
+
         bzero(&clientAddr, sizeof(clientAddr));
         bzero(msg.message, sizeof(msg.message));
         bzero(buffer, sizeof(buffer));
@@ -264,14 +310,12 @@ void work_fileOperation(void * userList, void * userInfo, void * pOption, void *
         strncpy(msg.message, inet_ntoa(clientAddr.sin_addr), len);
         msg.message[len] = ':';
         myItoA(clientAddr.sin_port, msg.message+len+1);
-        printf("addr: %s\n", msg.message);
+        //printf("addr: %s\n", msg.message);
         formatMsgToJson_msgToClient(msg, buffer);
-        send(goalNode->item.sockid, buffer, strlen(buffer), 0);
+        send(goalInfo.sockid, buffer, strlen(buffer), 0);
     }
     
-    free(userInfo);
-    free(pOption);
-    free(message);
+    freeAll(userInfo, pOption, message);
 }
 
 
@@ -300,9 +344,7 @@ void work_showOnline(void * userList, void * userInfo, void * pOption, void * me
     formatMsgToJson_msgToClient(msg, buffer);
     send(userInfo_s->sockid, buffer, strlen(buffer), 0);//用户过多buffer可能不够用......
     free(msg.names);
-    free(userInfo);
-    free(pOption);
-    free(message);
+    freeAll(userInfo, pOption, message);
 }
 
 
@@ -321,45 +363,55 @@ void work_superOperation(void * userList, void * userInfo, void * pOption, void 
     pthread_mutex_lock(&userList_mutex);
     Node_List *tNode = findNode(list, *userInfo_s, isEqual_itemName);
     Node_List *temp = findNode(list, *userInfo_s, isEqual_itemSockID);
-    pthread_mutex_unlock(&userList_mutex);
-
-    if(temp->item.userType != root){
-        msg.result = 0;
-        msg.reasonCode = 0;
-        formatMsgToJson_msgToClient(msg, buffer);
-        send(userInfo_s->sockid, buffer, strlen(buffer), 0); 
-        return;
-    }
-
+    UserInfo_server goalInfo, clientInfo;
     if(tNode == NULL){
         msg.result = 0;
         msg.reasonCode = 1;
         formatMsgToJson_msgToClient(msg, buffer);
         send(userInfo_s->sockid, buffer, strlen(buffer), 0);
+        pthread_mutex_unlock(&userList_mutex);
+        return;
+    }
+    if(temp == NULL){
+        printf("用户列表异常，操作发起用户不在线\n");
+        pthread_mutex_unlock(&userList_mutex);
+        freeAll(userInfo, pOption, message);
+        return;
+    }
+    userInfoCopy(&goalInfo, tNode->item);
+    userInfoCopy(&clientInfo, temp->item);
+    pthread_mutex_unlock(&userList_mutex);
+
+    if(clientInfo.userType != root){
+        msg.result = 0;
+        msg.reasonCode = 0;
+        formatMsgToJson_msgToClient(msg, buffer);
+        send(userInfo_s->sockid, buffer, strlen(buffer), 0); 
+        freeAll(userInfo, pOption, message);
         return;
     }
 
     msg.result = 1;
     msg.reasonCode = option + 3;
     memset(msg.message, 0, sizeof(msg.message));
-    strncpy(msg.message, tNode->item.userInfo_c.name, strlen(tNode->item.userInfo_c.name));
+    strncpy(msg.message, goalInfo.userInfo_c.name, strlen(goalInfo.userInfo_c.name));
     formatMsgToJson_msgToClient(msg, buffer);
     send(userInfo_s->sockid, buffer, strlen(buffer), 0);//发给操作者
-    int sockid = tNode->item.sockid;//优化点，先链表数据保存下来在访问，不要对链表多次访问，不然要加锁解锁很多次，这里加锁解锁也不完善
+    int sockid = goalInfo.sockid;//优化点，先链表数据保存下来在访问，不要对链表多次访问，不然要加锁解锁很多次，这里加锁解锁也不完善
+    pthread_mutex_lock(&userList_mutex);
     switch(option){
         case 0: tNode->item.status = postBanend;    break; //禁言
         case 1: tNode->item.status = normal;   break;//解禁
         case 2: delNode(list, tNode->item, isEqual_itemID);  break;//踢人
         default : break;
     }
+    pthread_mutex_unlock(&userList_mutex);
+
     memset(buffer, 0, sizeof(buffer));
     msg.reasonCode -= 3;
     formatMsgToJson_msgToClient(msg, buffer);
     send(sockid, buffer, strlen(buffer), 0);//发给被操作者
-    
-    free(userInfo);
-    free(pOption);
-    free(message);
+    freeAll(userInfo, pOption, message);
 }
 
 
@@ -384,4 +436,21 @@ void myItoA(const int a, char *string){
         string[i] = string[j] - string[i];
         string[j] = string[j] - string[i];
     }
+}
+
+void freeAll(void* userInfo, void*pOption, void*message){
+    free(userInfo);
+    free(pOption);
+    free(message);
+}
+
+void userInfoCopy(UserInfo_server *dest, UserInfo_server src){
+    dest->sockid = src.sockid;
+    dest->status = src.status;
+    dest->userType = src.userType;
+    dest->userInfo_c.id = src.userInfo_c.id;
+    bzero(dest->userInfo_c.name, sizeof(dest->userInfo_c.name));
+    bzero(dest->userInfo_c.pwd, sizeof(dest->userInfo_c.pwd));
+    strncpy(dest->userInfo_c.name, src.userInfo_c.name, strlen(src.userInfo_c.name));
+    strncpy(dest->userInfo_c.pwd, src.userInfo_c.pwd, strlen(src.userInfo_c.pwd));
 }
