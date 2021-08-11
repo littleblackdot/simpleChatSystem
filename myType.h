@@ -5,7 +5,7 @@
 
 #define FILENAMELEN 128
 #define FILEPATHLEN 256
-#define FILEDIVLEN 512 //每次传输的文件主题最大大小
+#define FILEDIVLEN 512 //每次传输的文件分块最大大小
 
 typedef enum ActionType_Client{
     Register, Login, Chat, fileOperation, showOnline, superOperation

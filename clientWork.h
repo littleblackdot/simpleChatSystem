@@ -25,5 +25,6 @@ void sendFile(const char *goalAddr, const char* filePath);
 void messReceive(int sockid);
 void parseIPADDR(const char* addrString, struct sockaddr_in *addr);
 int createfile(char *filename, int size);
+void myItoA(int a, char *string);
 
 #endif

@@ -34,7 +34,7 @@ int main(){
     clientWorkFuncType workFuncs[6] = {work_register, work_login, work_chat, work_sendFile, work_showOnline, work_superOperate};
     printf("已进入聊天室........\n");
     while(1){
-        showMeun();
+        showMeun();                                   
         printf("请选择：\n");
         scanf("%d", &option);
         checkFilesendRequest((void*)&sockid);

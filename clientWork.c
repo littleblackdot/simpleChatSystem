@@ -379,7 +379,9 @@ void receiveFile(int sockid, FileInfo *pfileInfo){
             int udpfd = socket(AF_INET, SOCK_DGRAM, 0);
             int count = pfileInfo->blockSize;
             int len ;
+            int temp = i;
             PartOfFile part;
+            char tempStr[40];
             getsockname(connfd, (struct sockaddr *)&hostAddr, &addrLen);
             setsockopt(udpfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)); 
             bind(udpfd, (struct sockaddr *)&hostAddr, sizeof(hostAddr));
@@ -387,28 +389,37 @@ void receiveFile(int sockid, FileInfo *pfileInfo){
             while(count == pfileInfo->blockSize){
                 bzero(buffer, sizeof(buffer));
                 len = recv(connfd, buffer, sizeof(buffer), 0);
-                //printf("len: %d\n", len);
                 if(len <= 0){
+                    //perror("");
                     break;
                 }
-                //printf("receive:%s\n", buffer);
                 bzero(part.body, sizeof(part.body));
-                //printf("buffer:%s\n", buffer);
-                parseJsonData_PartOfFile(&part, buffer);
+                bzero(tempStr, sizeof(tempStr));
+                strncpy(tempStr, buffer, sizeof(tempStr));
+                part.offset = atoi(tempStr);
+
+                bzero(tempStr, sizeof(tempStr));
+                strncpy(tempStr, buffer+40, sizeof(tempStr));
+                part.realsize = atoi(tempStr);
+                printf("offset:%d, realsize:%d\n", part.offset, part.realsize);
+                //parseJsonData_PartOfFile(&part, buffer);
                 count = part.realsize;
-                //lseek(fd, part.offset, SEEK_SET);
-                //printf("%d:part.body:%s\n", i, part.body);
-                memcpy(fileBegin+part.offset, part.body, part.realsize);
-                //write(fd, part.body, part.realsize);
+                memcpy(fileBegin+part.offset, buffer+80, part.realsize);
+                if(part.realsize < pfileInfo->blockSize){
+                    printf("part %d copmlete ------------------- ------\n",temp);
+                }
             }
             shutdown(connfd, SHUT_RDWR);
             exit(1);
         }   
     }
+    for(int i = 0; i < 8; i++){
+        wait(NULL);
+    }
     printf("文件接受完成\n");
+    shutdown(listenFd, SHUT_RDWR);
     close(fd);
     munmap(fileBegin, pfileInfo->size);
-    wait(NULL);
 }
 
 
@@ -419,7 +430,7 @@ void sendFile(const char* goalAddr, const char* filePath){
     struct stat filestat;
     socklen_t addrLen = sizeof(struct sockaddr_in);
     char buffer[BUFFER_SIZE];
-    char *fileBegin; 
+    char *fileBegin;
     if(fd < 0){
         perror("open file error");
         return ;
@@ -431,7 +442,7 @@ void sendFile(const char* goalAddr, const char* filePath){
     //printf("%s:%d\n", inet_ntoa(addr.sin_addr), addr.sin_port);
     fstat(fd ,&filestat);
     fileBegin= (char*)mmap(NULL, filestat.st_size, PROT_READ,MAP_SHARED, fd, 0);
-    
+    printf("filesize: %d\n", filestat.st_size);
     for(int i = 0; i < 8; i++){
         int pid = fork();
         if(pid == 0){
@@ -440,38 +451,47 @@ void sendFile(const char* goalAddr, const char* filePath){
             int partFileSize = 0;
             int blockSize = FILEDIVLEN;
             int udpfd;
+            int temp = i;
             if(connect(connfd, (struct sockaddr *)&addr, sizeof(addr)) != 0){
                 perror("connect failed");
                 exit(1);
             }
-            udpfd = socket(AF_INET, SOCK_DGRAM, 0);
+            /* udpfd = socket(AF_INET, SOCK_DGRAM, 0);
             bzero(&addr2, sizeof(addr2));
-            getpeername(connfd, (struct sockaddr *)&addr2, &addrLen);
-           // printf("acceptAddr3:%s : %d\n", inet_ntoa(addr2.sin_addr), addr2.sin_port);
-            part.offset = i * (filestat.st_size/8);
-            part.seq = i;
-            partFileSize = i < 7 ? (filestat.st_size/8) : filestat.st_size - (filestat.st_size/8)*i;
+            getpeername(connfd, (struct sockaddr *)&addr2, &addrLen); */
+            part.offset = temp * (filestat.st_size/8);
+            part.seq = temp;
+            partFileSize = temp < 7 ? (filestat.st_size/8) : filestat.st_size - (filestat.st_size/8)*temp;
+            printf("----------------\n");
+            printf("i:%d partSize:%d\n", temp, partFileSize);
+            printf("----------------\n");
             while(partFileSize > 0){
-                //lseek(fd, part.offset, SEEK_SET);
                 bzero(part.body, sizeof(part.body));
                 bzero(buffer, sizeof(buffer));
                 part.realsize = partFileSize > blockSize ? blockSize : partFileSize;
                 partFileSize -= part.realsize;
-                //read(fd, part.body, part.realsize);
-                memcpy(part.body, fileBegin+part.offset, part.realsize);
-                formatPartOfFileInfoToJson(part, buffer);
-                //printf("%d send:%s\n", i, buffer);
+                myItoA(part.offset, buffer);
+                myItoA(part.realsize, buffer+40);
+                memcpy(buffer+80, fileBegin+part.offset, part.realsize);
+                printf("offset: %d realsize %d remainSize: %d buffer: %s %s\n", part.offset, part.realsize, partFileSize, buffer, buffer+40);
+                //formatPartOfFileInfoToJson(part, buffer);
                 send(connfd, buffer, sizeof(buffer), 0);
                 //sendto(udpfd ,buffer, strlen(buffer), 0, (struct sockaddr *)&addr2, sizeof(addr2));
-                part.offset += partFileSize;
+                part.offset += part.realsize;
+                if(partFileSize == 0){
+                    printf("part %d copmlete ------------------- ------\n", temp);
+                }
             }
             shutdown(connfd, SHUT_RDWR);
             exit(1);
         } 
     }
+    for(int i = 0; i < 8; i++){
+        wait(NULL);
+    }
     printf("文件发送完成\n");
-    wait(NULL);
     munmap(fileBegin, filestat.st_size);
+    
 }
 
 void parseIPADDR(const char* addrString, struct sockaddr_in *addr){
@@ -495,4 +515,25 @@ int createfile(char *filename, int size)
 	write(fd, "", 1);
 	close(fd);
 	return 0;
+}
+
+void myItoA(int a, char *string){
+    int temp = a;
+    int i = 0;
+    int j=0;
+    if(temp == 0){
+        string[0] = '0';
+        return;
+    }
+    while(temp != 0){
+        string[i] = temp%10 + '0';
+        temp /=10;
+        i++;
+    }
+    i--;
+    for(; j < i; j++,i--){
+        string[j] = string[i] + string[j];
+        string[i] = string[j] - string[i];
+        string[j] = string[j] - string[i];
+    }
 }

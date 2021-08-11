@@ -28,7 +28,7 @@ void insertNode(List* list, elementType_LIST item){//头插
 		return ;
 	}
 	Node_List* node = (Node_List*)malloc(sizeof(Node_List));
-	itemAssign(&node->item, item);
+	itemAssign(&(node->item), item);
 	node->next = NULL;
 	if(isEmpty_list(list)){
 		list->head = node;
@@ -143,6 +143,7 @@ int isEqual_itemSockID(elementType_LIST itemA, elementType_LIST itemB){
 
 void showItem(elementType_LIST item){
 	printf("sockid: %d\n", item.sockid);
+	printf("id: %d\n", item.userInfo_c.id);
 	printf("userName: %s\n", item.userInfo_c.name);
 	printf("pwd: %s\n", item.userInfo_c.pwd);
 	printf("status: %d\n", item.status);

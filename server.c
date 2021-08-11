@@ -57,16 +57,18 @@ int main(){
                     UserInfo_server temp ;
                     Node_List *offLineNode;
                     temp.sockid = sockid2;
+                    pthread_mutex_lock(&userList_mutex);
                     offLineNode = findNode(list, temp, isEqual_itemSockID);
                     if(offLineNode != NULL){
-                        pthread_mutex_lock(&userList_mutex);
-                        delNode(list, offLineNode->item, isEqual_itemID);
-                        pthread_mutex_unlock(&userList_mutex);
-                        bzero(log, sizeof(log));
+                        //showItem(offLineNode->item);
                         sprintf(log, "用户下线 id :%d\n", offLineNode->item.userInfo_c.id);
                         printf(log);
                         write(logfd, log, strlen(log));
-                    } 
+                        delNode(list, offLineNode->item, isEqual_itemID);
+                        bzero(log, sizeof(log));
+                        
+                    }
+                    pthread_mutex_unlock(&userList_mutex); 
                     shutdown(sockid2,SHUT_RDWR);
                     t.data.fd = sockid2;
                     t.events = EPOLLIN;

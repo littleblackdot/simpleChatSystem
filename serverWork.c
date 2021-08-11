@@ -100,14 +100,13 @@ void work_login(void * userList, void * userInfo,  void * pOption, void * messag
     
     bzero(log, sizeof(log));
     sprintf(log, "用户%s登录，id：%d\n", userInfo_s->userInfo_c.name, userInfo_s->userInfo_c.id);
-    printf("1\n");
     printf(log);
     write(logfd, log, strlen(log));
 
     pthread_mutex_lock(&userList_mutex);
     insertNode(list, *userInfo_s);
     pthread_mutex_unlock(&userList_mutex);
-    //displayList(list);
+    displayList(list);
     //printf("isroot %d\n", userInfo_s->userType == root);
     msg.result = 1;
     memset(buffer, 0, sizeof(buffer));
@@ -190,13 +189,13 @@ void work_chat(void * userList, void * userInfo, void * pOption, void * message)
         formatMsgToJson_msgToClient(msg, buffer); 
         send(userInfo_s->sockid, buffer, strlen(buffer), 0);
     }
-    if(count == 1){
+    if(option == 0){
         bzero(log, sizeof(log));
         sprintf(log, "用户%s向用户%s私发消息:%s\n", clientNode.item.userInfo_c.name, temp.userInfo_c.name, mess);
         printf(log);
         write(logfd, log, strlen(log));
     }
-    if(count > 1){
+    if(option == 1){
         bzero(log, sizeof(log));
         sprintf(log, "用户%s群发消息:%s\n", clientNode.item.userInfo_c.name, mess);
         printf(log);
@@ -421,10 +420,14 @@ void perror_db(sqlite3* db, int errMsg, const char * msg){
     }
 }
 
-void myItoA(const int a, char *string){
+void myItoA(int a, char *string){
     int temp = a;
     int i = 0;
     int j=0;
+    if(temp == 0){
+        string[0] == '0';
+        return;
+    }
     while(temp != 0){
         string[i] = temp%10 + '0';
         temp /=10;
