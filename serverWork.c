@@ -106,7 +106,7 @@ void work_login(void * userList, void * userInfo,  void * pOption, void * messag
     pthread_mutex_lock(&userList_mutex);
     insertNode(list, *userInfo_s);
     pthread_mutex_unlock(&userList_mutex);
-    displayList(list);
+    //displayList(list);
     //printf("isroot %d\n", userInfo_s->userType == root);
     msg.result = 1;
     memset(buffer, 0, sizeof(buffer));

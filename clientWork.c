@@ -354,6 +354,7 @@ void receiveFile(int sockid, FileInfo *pfileInfo){
     if(fd < 0){
         perror("file create fail");
     }
+    hostAddr.sin_port = htons(11235);
     fileBegin= (char*)mmap(NULL, pfileInfo->size, PROT_READ|PROT_WRITE,MAP_SHARED, fd, 0);
     setsockopt(listenFd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)); 
     if(bind(listenFd, (struct sockaddr *)&hostAddr, sizeof(hostAddr)) != 0){
@@ -366,10 +367,13 @@ void receiveFile(int sockid, FileInfo *pfileInfo){
     for(int i = 0; i < 8; i++){
         bzero(&peerAddr, sizeof(peerAddr));
         int connfd = accept(listenFd, (struct sockaddr*)&peerAddr, &addrLen);
+        
         int temp = i;
         if(connfd == -1){
             perror("accept error");
+            return;
         }
+
         int pid = fork();
         if(pid < 0){
             perror("fork error");
@@ -377,14 +381,15 @@ void receiveFile(int sockid, FileInfo *pfileInfo){
         }
         if(pid == 0){
             //子进程接收文件分块
-            int udpfd = socket(AF_INET, SOCK_DGRAM, 0);
+            //printf udpfd = socket(AF_INET, SOCK_DGRAM, 0);
             int count = pfileInfo->blockSize;
             int len ;
             PartOfFile part;
             char tempStr[40];
-            getsockname(connfd, (struct sockaddr *)&hostAddr, &addrLen);
+            /* getsockname(connfd, (struct sockaddr *)&hostAddr, &addrLen);
             setsockopt(udpfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)); 
-            bind(udpfd, (struct sockaddr *)&hostAddr, sizeof(hostAddr));
+            bind(udpfd, (struct sockaddr *)&hostAddr, sizeof(hostAddr)); */
+            printf("connfd %d\n", connfd);
             int seq = 0;
             while(count == pfileInfo->blockSize){
                 bzero(buffer, sizeof(buffer));
@@ -439,16 +444,18 @@ void sendFile(const char* goalAddr, const char* filePath){
 
     bzero(&addr, sizeof(addr));
     parseIPADDR(goalAddr, &addr);
-    addr.sin_family = AF_INET; 
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(11235); 
     //printf("%s:%d\n", inet_ntoa(addr.sin_addr), addr.sin_port);
     fstat(fd ,&filestat);
     fileBegin= (char*)mmap(NULL, filestat.st_size, PROT_READ,MAP_SHARED, fd, 0);
     //printf("filesize: %d\n", filestat.st_size);
     for(int i = 0; i < 8; i++){
         int temp = i;
+        int connfd = socket(AF_INET, SOCK_STREAM, 0);
         int pid = fork();
         if(pid == 0){
-            int connfd = socket(AF_INET, SOCK_STREAM, 0);
+            printf("connfd %d\n", connfd);
             PartOfFile part;
             int partFileSize = 0;
             int blockSize = FILEDIVLEN;
@@ -458,6 +465,7 @@ void sendFile(const char* goalAddr, const char* filePath){
                 perror("connect failed");
                 exit(1);
             }
+
             /* udpfd = socket(AF_INET, SOCK_DGRAM, 0);
             bzero(&addr2, sizeof(addr2));
             getpeername(connfd, (struct sockaddr *)&addr2, &addrLen); */
@@ -467,7 +475,7 @@ void sendFile(const char* goalAddr, const char* filePath){
            /*  printf("----------------\n");
             printf("i:%d partSize:%d\n", temp, partFileSize);
             printf("----------------\n"); */
-            int seq = 0;
+            //int seq = 0;
             while(partFileSize > 0){
                 bzero(part.body, sizeof(part.body));
                 bzero(buffer, sizeof(buffer));
@@ -479,12 +487,12 @@ void sendFile(const char* goalAddr, const char* filePath){
                 //printf("part:%d seq:%d offset: %d realsize %d remainSize: %d buffer: %s %s\n", temp, seq, part.offset, part.realsize, partFileSize, buffer, buffer+40);
                 //formatPartOfFileInfoToJson(part, buffer);
                 send(connfd, buffer, sizeof(buffer), 0);
-                seq++;
+                //seq++;
                 //sendto(udpfd ,buffer, strlen(buffer), 0, (struct sockaddr *)&addr2, sizeof(addr2));
                 part.offset += part.realsize;
-                /* if(partFileSize == 0){
+                if(partFileSize == 0){
                     printf("part %d copmlete ------------------- ------\n", temp);
-                } */
+                }
             }
             shutdown(connfd, SHUT_RDWR);
             exit(1);
