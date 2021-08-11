@@ -354,7 +354,7 @@ void receiveFile(int sockid, FileInfo *pfileInfo){
     if(fd < 0){
         perror("file create fail");
     }
-    hostAddr.sin_port = htons(11235);
+    //hostAddr.sin_port = htons(11235);
     fileBegin= (char*)mmap(NULL, pfileInfo->size, PROT_READ|PROT_WRITE,MAP_SHARED, fd, 0);
     setsockopt(listenFd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)); 
     if(bind(listenFd, (struct sockaddr *)&hostAddr, sizeof(hostAddr)) != 0){
@@ -366,14 +366,12 @@ void receiveFile(int sockid, FileInfo *pfileInfo){
     }
     for(int i = 0; i < 8; i++){
         bzero(&peerAddr, sizeof(peerAddr));
-        int connfd = accept(listenFd, (struct sockaddr*)&peerAddr, &addrLen);
-        
         int temp = i;
+        int connfd = accept(listenFd, (struct sockaddr*)&peerAddr, &addrLen);
         if(connfd == -1){
             perror("accept error");
             return;
         }
-
         int pid = fork();
         if(pid < 0){
             perror("fork error");
@@ -382,23 +380,35 @@ void receiveFile(int sockid, FileInfo *pfileInfo){
         if(pid == 0){
             //子进程接收文件分块
             //printf udpfd = socket(AF_INET, SOCK_DGRAM, 0);
+            
             int count = pfileInfo->blockSize;
             int len ;
+            int partFileSize;
             PartOfFile part;
             char tempStr[40];
             /* getsockname(connfd, (struct sockaddr *)&hostAddr, &addrLen);
             setsockopt(udpfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)); 
             bind(udpfd, (struct sockaddr *)&hostAddr, sizeof(hostAddr)); */
             printf("connfd %d\n", connfd);
+            len = recv(connfd, buffer, sizeof(buffer), 0);
+            if(len <= 0){
+                //perror("");
+                printf("tcp error\n");
+                return;
+            }
+            bzero(tempStr, sizeof(tempStr));
+            strncpy(tempStr, buffer, sizeof(tempStr));
+            part.seq = atoi(tempStr);
+            partFileSize = part.seq < 7 ? (pfileInfo->size/8) : pfileInfo->size - (pfileInfo->size/8)*7;
+            printf("part.seq: %d\n", part.seq);
             int seq = 0;
-            while(count == pfileInfo->blockSize){
+            while(partFileSize > 0){
                 bzero(buffer, sizeof(buffer));
                 len = recv(connfd, buffer, sizeof(buffer), 0);
-                if(len <= 0){
-                    //perror("");
+                if(len == 0){
+                    printf("recv 0\n");
                     break;
                 }
-                bzero(part.body, sizeof(part.body));
                 bzero(tempStr, sizeof(tempStr));
                 strncpy(tempStr, buffer, sizeof(tempStr));
                 part.offset = atoi(tempStr);
@@ -409,15 +419,17 @@ void receiveFile(int sockid, FileInfo *pfileInfo){
                 //printf("part:%d seq: %d offset:%d, realsize:%d\n",temp, seq, part.offset, part.realsize);
                 //parseJsonData_PartOfFile(&part, buffer);
                 seq++;
-                count = part.realsize;
+                partFileSize -= part.realsize;
                 memcpy(fileBegin+part.offset, buffer+80, part.realsize);
-                /* if(part.realsize < pfileInfo->blockSize){
-                    printf("part %d copmlete ------------------- ------\n",temp);
-                } */
+                if(partFileSize == 0 ){
+                    printf("part %d seq: %dcopmlete ------------------- ------\n",temp, seq);
+                }
             }
             shutdown(connfd, SHUT_RDWR);
+            close(connfd);
             exit(1);
-        }   
+        }
+        //close(connfd);   
     }
     for(int i = 0; i < 8; i++){
         wait(NULL);
@@ -445,7 +457,7 @@ void sendFile(const char* goalAddr, const char* filePath){
     bzero(&addr, sizeof(addr));
     parseIPADDR(goalAddr, &addr);
     addr.sin_family = AF_INET;
-    addr.sin_port = htons(11235); 
+    //addr.sin_port = htons(11235); 
     //printf("%s:%d\n", inet_ntoa(addr.sin_addr), addr.sin_port);
     fstat(fd ,&filestat);
     fileBegin= (char*)mmap(NULL, filestat.st_size, PROT_READ,MAP_SHARED, fd, 0);
@@ -453,31 +465,33 @@ void sendFile(const char* goalAddr, const char* filePath){
     for(int i = 0; i < 8; i++){
         int temp = i;
         int connfd = socket(AF_INET, SOCK_STREAM, 0);
+        if(connect(connfd, (struct sockaddr *)&addr, sizeof(addr)) != 0){
+                perror("connect failed");
+                exit(1);
+        }
         int pid = fork();
         if(pid == 0){
-            printf("connfd %d\n", connfd);
+            
             PartOfFile part;
             int partFileSize = 0;
             int blockSize = FILEDIVLEN;
             int udpfd;
-            
-            if(connect(connfd, (struct sockaddr *)&addr, sizeof(addr)) != 0){
-                perror("connect failed");
-                exit(1);
-            }
-
+            printf("connfd %d\n", connfd);
+            bzero(buffer, sizeof(buffer));
+            myItoA(temp, buffer);
+            send(connfd, buffer, sizeof(buffer), 0);
             /* udpfd = socket(AF_INET, SOCK_DGRAM, 0);
             bzero(&addr2, sizeof(addr2));
             getpeername(connfd, (struct sockaddr *)&addr2, &addrLen); */
             part.offset = temp * (filestat.st_size/8);
             part.seq = temp;
-            partFileSize = temp < 7 ? (filestat.st_size/8) : filestat.st_size - (filestat.st_size/8)*temp;
+            partFileSize = temp < 7 ? (filestat.st_size/8) : filestat.st_size - (filestat.st_size/8)*7;
            /*  printf("----------------\n");
             printf("i:%d partSize:%d\n", temp, partFileSize);
             printf("----------------\n"); */
-            //int seq = 0;
+            int seq = 0;
             while(partFileSize > 0){
-                bzero(part.body, sizeof(part.body));
+                
                 bzero(buffer, sizeof(buffer));
                 part.realsize = partFileSize > blockSize ? blockSize : partFileSize;
                 partFileSize -= part.realsize;
@@ -487,16 +501,19 @@ void sendFile(const char* goalAddr, const char* filePath){
                 //printf("part:%d seq:%d offset: %d realsize %d remainSize: %d buffer: %s %s\n", temp, seq, part.offset, part.realsize, partFileSize, buffer, buffer+40);
                 //formatPartOfFileInfoToJson(part, buffer);
                 send(connfd, buffer, sizeof(buffer), 0);
-                //seq++;
+                seq++;
                 //sendto(udpfd ,buffer, strlen(buffer), 0, (struct sockaddr *)&addr2, sizeof(addr2));
                 part.offset += part.realsize;
                 if(partFileSize == 0){
-                    printf("part %d copmlete ------------------- ------\n", temp);
+                    printf("part %d seq:%d copmlete ------------------- ------\n", temp, seq);
                 }
+                usleep(10);
             }
             shutdown(connfd, SHUT_RDWR);
+            close(connfd);
             exit(1);
-        } 
+        }
+        //close(connfd); 
     }
     for(int i = 0; i < 8; i++){
         wait(NULL);
@@ -521,8 +538,7 @@ void parseIPADDR(const char* addrString, struct sockaddr_in *addr){
 
 int createfile(char *filename, int size)
 {
-	int fd = open(filename, O_RDWR | O_CREAT);
-	fchmod(fd, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
+	int fd = open(filename, O_RDWR | O_CREAT| O_TRUNC, 0666);
 	int pos = lseek(fd, size-1, SEEK_SET);
 	write(fd, "", 1);
 	close(fd);
