@@ -255,3 +255,58 @@
 用户下线 id :100037
 用户lisi登录，id：100037
 用户jianpanxia登录，id：100036
+用户jianpanxia登录，id：100036
+用户lisi登录，id：100037
+用户下线 id :100037
+用户lisi登录，id：100037
+用户下线 id :100036
+用户jianpanxia登录，id：100036
+用户lisi登录，id：100037
+用户下线 id :100036
+用户jianpanxia登录，id：100036
+用户下线 id :100037
+用户下线 id :100036
+用户jianpanxia登录，id：100036
+用户lisi登录，id：100037
+用户下线 id :100036
+用户jianpanxia登录，id：100036
+用户下线 id :100036
+用户jianpanxia登录，id：100036
+用户下线 id :100037
+用户lisi登录，id：100037
+用户下线 id :100036
+用户下线 id :100037
+用户jianpanxia登录，id：100036
+用户lisi登录，id：100037
+用户下线 id :100036
+用户jianpanxia登录，id：100036
+用户下线 id :100036
+用户jianpanxia登录，id：100036
+用户下线 id :100037
+用户lisi登录，id：100037
+用户下线 id :100037
+用户lisi登录，id：100037
+用户lisi登录，id：100037
+用户下线 id :100037
+用户jianpanxia登录，id：100036
+用户jianpanxia登录，id：100036
+用户lisi登录，id：100037
+用户jianpanxia向用户lisui私发消息:s
+用户jianpanxia向用户lisi私发消息:siw
+用户root登录，id：100000
+用户jianpanxia群发消息:jdsw
+用户jianpanxia登录，id：100036
+用户jianpanxia登录，id：100036
+用户下线 id :100036
+用户lisi登录，id：100037
+用户root登录，id：100000
+用户jianpanxia登录，id：100036
+用户lisi登录，id：100037
+用户root群发消息:jidsad
+用户root向用户jianpanxia私发消息:asdhuiwd
+用户下线 id :100036
+用户下线 id :100000
+用户lisi登录，id：100037
+用户jianpanxia登录，id：100036
+用户下线 id :100036
+用户下线 id :100037

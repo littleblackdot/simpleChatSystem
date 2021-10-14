@@ -68,7 +68,7 @@ void work_login(void * userList, void * userInfo,  void * pOption, void * messag
     char sql[BUFFER_SIZE];
     char buffer[BUFFER_SIZE];
     char log[BUFFER_SIZE];
-    char *errMsg;
+    char *errMsg; 
     char **table;
     int columnCount;
     int rowCount;
@@ -217,7 +217,6 @@ void work_fileOperation(void * userList, void * userInfo, void * pOption, void *
 
     if(option == 0){//客户端发来文件发送请求
         pthread_mutex_lock(&userList_mutex);
-        
         Node_List *goalNode = findNode(list, *userInfo_s, isEqual_itemName);
         Node_List *clientNode = findNode(list, *userInfo_s,isEqual_itemSockID);
         UserInfo_server goalInfo, clientInfo;

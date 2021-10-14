@@ -123,7 +123,7 @@ void* threadsManager(void* arg){
         sleep(2);
         pthread_mutex_lock(&pthpool->mutex_taskQueue);
         pthread_mutex_lock(&pthpool->mutex_threadPool);
-        if(pthpool->threadNum_busy == pthpool->threadNum_active && !isEmpty_queue(pthpool->queue)){//任务队列到达容量2/3就把线程数扩容
+        if(pthpool->threadNum_busy == pthpool->threadNum_active && !isEmpty_queue(pthpool->queue)){//任务队列不空就把线程数扩容
             expendThreadPool(pthpool);
         }
         pthread_mutex_unlock(&pthpool->mutex_threadPool);
